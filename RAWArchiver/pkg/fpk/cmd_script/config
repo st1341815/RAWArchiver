@@ -1,0 +1,5 @@
+#!/bin/bash
+PKG_CONF_PORT=(8765)
+PKG_SERVICE_PORT=(8765)
+PKG_CONF_USER=(root)
+PKG_CONF_GROUP=(root)

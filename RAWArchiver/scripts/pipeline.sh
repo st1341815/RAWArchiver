@@ -1,0 +1,40 @@
+#!/bin/sh
+# RAW 归档 —— 一键流水线（可挂 DSM 任务计划程序，以 root 执行以获得删卡权限）
+# 用法：SOURCE=/volumeUSB1/usbshare OUTPUT=/volume1/photos/Camera MODE=move sh scripts/pipeline.sh
+set -eu
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SOURCE="${SOURCE:-/volumeUSB1/usbshare}"
+OUTPUT="${OUTPUT:-/volume1/photos/Camera}"
+MODE="${MODE:-move}"
+PYBIN="${PYBIN:-python3}"
+EXTRA="${EXTRA:---brand --month}"
+LOG="$ROOT/data/rawarchiver/pipeline.log"
+mkdir -p "$(dirname "$LOG")" "$OUTPUT/.rawarchiver/tasks"
+
+log(){ printf "[%s] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$*" | tee -a "$LOG"; }
+die(){ log "ERROR: $*"; exit 1; }
+
+[ -d "$SOURCE" ] || die "源不存在或未挂载: $SOURCE"
+log "=== RAW 归档流水线启动 ==="
+log "[0/4] 环境自检"
+"$PYBIN" "$ROOT/scripts/raw_archiver.py" --doctor | tee -a "$LOG"
+
+TID="$(date +%Y%m%d_%H%M%S)"
+
+log "[1/4] 预览源 $SOURCE"
+"$PYBIN" "$ROOT/scripts/raw_archiver.py" "$SOURCE" --output "$OUTPUT" --preview | tee -a "$LOG"
+
+log "[2/4] 开始归档 (task=$TID mode=$MODE)"
+"$PYBIN" "$ROOT/scripts/raw_archiver.py" "$SOURCE" --output "$OUTPUT" --mode "$MODE" \
+  --task-id "$TID" $EXTRA || die "归档失败（可用 --task-id $TID 续跑）"
+
+log "[3/4] 报告: $OUTPUT/_report_$TID.json"
+[ -f "$OUTPUT/_report_$TID.json" ] || die "报告未生成"
+
+log "[4/4] 触发下游钩子"
+if [ -x "$ROOT/scripts/hooks/post_done.sh" ]; then
+  "$ROOT/scripts/hooks/post_done.sh" "$TID" "$OUTPUT" >>"$LOG" 2>&1 || log "钩子返回非 0（忽略）"
+else
+  log "无 post_done 钩子，跳过"
+fi
+log "=== RAW 归档流水线结束 ==="

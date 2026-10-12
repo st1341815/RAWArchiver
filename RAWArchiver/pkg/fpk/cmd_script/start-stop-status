@@ -1,0 +1,20 @@
+#!/bin/bash
+# RAW 归档 (fnOS) —— 启停本机 Agent（http://<NAS>:8765/）
+set -u
+DEST="${TRIM_PKGDEST:-$(cd "$(dirname "$0")/.." && pwd)}"
+VAR="${TRIM_PKGVAR:-$DEST/var}"
+PYB="${PYTHON_BIN:-python3}"
+PIDF="$VAR/rawarchiver.pid"
+mkdir -p "$VAR"
+case "$1" in
+  start)
+    [ -f "$PIDF" ] && kill -0 "$(cat $PIDF)" 2>/dev/null && exit 0
+    PYTHONPATH="$DEST/pylibs:${PYTHONPATH:-}" nohup "$PYB" "$DEST/agent/agent.py" > "$VAR/agent.log" 2>&1 &
+    echo $! > "$PIDF"; exit 0;;
+  stop)
+    [ -f "$PIDF" ] && kill "$(cat $PIDF)" 2>/dev/null; rm -f "$PIDF"
+    pkill -f "agent/agent.py" 2>/dev/null; exit 0;;
+  status)
+    [ -f "$PIDF" ] && kill -0 "$(cat $PIDF)" 2>/dev/null && exit 0; exit 3;;
+esac
+exit 0

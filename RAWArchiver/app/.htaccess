@@ -1,0 +1,11 @@
+# RAW 归档 —— Apache 目录策略（DSM 6 兼容层；DSM 7 由 installer 写 nginx 配置）
+Options -Indexes -FollowSymLinks
+AddHandler cgi-script .cgi
+<Directory .>
+  AllowOverride None
+  Require all granted
+  Options +ExecCGI
+</Directory>
+<FilesMatch "\.(py|sh|json|log)$">
+  Require all denied
+</FilesMatch>

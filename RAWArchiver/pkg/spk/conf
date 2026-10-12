@@ -1,0 +1,8 @@
+{
+    "defaults": {
+        "run-as": { "user": "http", "group": "users" },
+        "data-share": "rawarchiver",
+        "reboot": "no"
+    },
+    "license": { "name": "MIT" }
+}

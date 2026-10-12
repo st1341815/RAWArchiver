@@ -1,0 +1,15 @@
+#!/bin/bash
+set -u
+LOG(){ echo "[rawarchiver] $*"; }
+DEST="${TRIM_PKGDEST:-$(cd "$(dirname "$0")/.." && pwd)}"
+VAR="${TRIM_PKGVAR:-$DEST/var}"
+mkdir -p "$VAR/etc" "$VAR/data/rawarchiver/tasks" "$VAR/logs"
+echo "$DEST" > "$VAR/etc/env"
+[ -f "$DEST/vendor/exiftool/exiftool" ] && chmod +x "$DEST/vendor/exiftool/exiftool"
+chmod +x "$DEST/scripts/"*.sh 2>/dev/null || true
+PYB="${PYTHON_BIN:-python3}"
+if [ -d "$DEST/vendor/wheels" ] && [ -n "$(ls -A "$DEST/vendor/wheels" 2>/dev/null)" ]; then
+  "$PYB" -m pip install --no-index --find-links "$DEST/vendor/wheels" -t "$DEST/pylibs" exifread Pillow >/dev/null 2>&1 \
+    || LOG "依赖离线安装失败，运行时将降级"
+fi
+exit 0

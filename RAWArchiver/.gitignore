@@ -1,0 +1,9 @@
+dist/
+.stage/
+agent/venv/
+vendor/wheels/
+__pycache__/
+*.pyc
+.DS_Store
+data/rawarchiver/tasks/*
+!data/rawarchiver/tasks/.gitkeep
