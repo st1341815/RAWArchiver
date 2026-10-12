@@ -7,8 +7,8 @@
       "protocol": "http",
       "url": "/cgi/ThirdParty/rawarchiver/index.cgi/",
       "allUsers": true,
-      "width": 900,
-      "height": 720
+      "width": 800,
+      "height": 600
     }
   }
 }
