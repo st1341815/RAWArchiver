@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="RAW 归档 —— 相机照片按拍摄日期整理归档">
+<title>RAW 归档</title>
+<style>
+body{font-family:-apple-system,"Microsoft YaHei",sans-serif;max-width:980px;margin:0 auto;padding:20px;color:#222}
+h1 small{font-size:14px;color:#666;font-weight:400}
+label{display:block;margin-top:14px;font-weight:600}
+input[type=text],select{width:100%;padding:7px;margin-top:4px;box-sizing:border-box}
+input[type=checkbox]{margin-right:6px}
+button{margin-top:12px;padding:8px 16px;cursor:pointer;border:1px solid #bbb;background:#f5f5f5;border-radius:4px}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:8px;align-items:flex-end}
+.row>*{flex:1}.row>button{flex:0 0 auto;margin-top:4px}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+th,td{border:1px solid #ddd;padding:5px;text-align:left;word-break:break-all}
+.bad{color:#c00;font-weight:600}.warn{color:#c00;margin-top:8px;line-height:1.6}
+.hint{color:#080;font-size:13px;margin-left:8px}
+#logBox{max-height:240px;overflow:auto;font-family:monospace;font-size:12px;background:#f7f7f7;padding:8px;margin-top:8px;white-space:pre-wrap}
+#progBar{height:18px;background:#eee;border-radius:4px;overflow:hidden;margin-top:10px}
+#progFill{width:0;height:100%;background:#4a9;transition:width .3s}
+footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;padding-top:10px}
+</style>
+</head>
+<body>
+<h1>RAW 归档 <small>v1.0.0</small></h1>
+
+<label>源（SD/TF/U盘或本地目录）
+  <div class="row" style="margin-top:4px">
+    <select id="srcSel"><option value="">— 请选择已挂载设备 —</option></select>
+    <button type="button" id="refreshSrc">刷新设备</button>
+  </div>
+  <input type="text" id="srcPath" placeholder="或手填路径，如 /volumeUSB1/usbshare">
+</label>
+
+<label>输出目录（归档落点，不存在会自动创建）
+  <div class="row" style="margin-top:4px">
+    <input type="text" id="outPath" placeholder="/volume1/photos/Camera">
+    <button type="button" id="mkOut">创建目录</button>
+  </div>
+  <span id="outHint" class="hint"></span>
+</label>
+
+<label>选项</label>
+<div style="line-height:2">
+<label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optBrand"> 按品牌分层</label>
+<label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optJpg" checked> 处理 JPG</label>
+<label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optVideo" checked> 处理视频</label>
+<label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optStaging" checked> 内部暂存（卡源推荐）</label>
+</div>
+
+<label>模式
+  <select id="optMode">
+    <option value="copy">复制（保留源文件）</option>
+    <option value="move">移动（归档后清空源设备，不可回滚）</option>
+  </select>
+</label>
+
+<div>
+  <button type="button" id="btnPreview">预览</button>
+  <button type="button" id="btnStart" disabled>确认并开始</button>
+  <button type="button" id="btnCancel" disabled>取消</button>
+  <button type="button" id="btnCleanup">补清源</button>
+  <button type="button" id="btnRollback">回滚</button>
+</div>
+
+<div id="previewBox" style="display:none;margin-top:16px">
+  <div id="prevSummary"></div>
+  <div id="prevWarn" class="warn"></div>
+  <details id="prevDetails">
+    <summary id="prevToggle" style="cursor:pointer;font-weight:600;margin-top:8px">文件清单</summary>
+    <div style="overflow:auto">
+      <table><thead><tr><th>源文件</th><th>拍摄日期</th><th>日期来源</th><th>目标路径</th></tr></thead>
+      <tbody id="prevBody"></tbody></table>
+    </div>
+  </details>
+</div>
+
+<div id="statusBox" style="margin-top:16px;display:none">
+  <div id="progBar"><div id="progFill"></div></div>
+  <div id="progText"></div>
+  <div id="logBox"></div>
+</div>
+
+<footer>RAW 归档 · 源设备只读优先，移动模式仅在归档全部成功后清源 · 任务态写在 &lt;输出目录&gt;/.rawarchiver/</footer>
+
+<script>
+// fnOS CGI 入口是 /cgi/ThirdParty/<app>/index.cgi/<subpath>；API 固定走 <...>/index.cgi/api
+// （注意：不要再拼尾随的 index.cgi，否则会被 fnOS 的 CGI 处理器按 .cgi 子路径拦截、返回非 JSON）
+const API = (function () {
+  const p = location.pathname, i = p.indexOf('index.cgi');
+  if (i >= 0) return p.slice(0, i + 'index.cgi'.length) + '/api';
+  return '/app/rawarchiver/api/index.cgi';
+})();
+const LS = 'rawarchiver.state';
+const $ = id => document.getElementById(id);
+const api = (act, body={}) => fetch(API + '?action=' + act, {
+  method:'POST', headers:{'Content-Type':'application/json'},
+  body: JSON.stringify(Object.assign({action:act}, body))
+}).then(r => r.json()).catch(e => ({ok:false, error:'请求失败: ' + e}));
+
+let tid = null, timer = null;
+const save = () => localStorage.setItem(LS, JSON.stringify({src:$('srcPath').value, out:$('outPath').value, mode:$('optMode').value}));
+const load = () => { try { const o = JSON.parse(localStorage.getItem(LS)||'{}');
+  $('srcPath').value = o.src||''; $('outPath').value = o.out||''; if (o.mode) $('optMode').value = o.mode; } catch(e){} };
+load();
+
+const isRemovable = () => /^\/(volumeUSB|mnt\/usb|media|run\/media|Volumes)/.test($('srcPath').value.trim());
+const check = () => { const ok = $('srcPath').value.trim() && $('outPath').value.trim() && $('previewBox').dataset.ready === '1';
+  $('btnStart').disabled = !ok; };
+$('srcPath').oninput = $('outPath').oninput = () => { save(); check(); $('outHint').textContent=''; };
+$('optMode').onchange = save;
+
+$('refreshSrc').onclick = async () => {
+  const r = await api('devices');
+  const sel = $('srcSel');
+  sel.innerHTML = '<option value="">— 请选择已挂载设备 —</option>';
+  (r.list||[]).forEach(d => { const o = document.createElement('option');
+    o.value = d.path; o.textContent = (d.label||'未命名卷') + ' (' + d.path + ') ' + d.files + ' 个可归档文件';
+    sel.appendChild(o); });
+  if (!(r.list||[]).length) sel.innerHTML = '<option value="">未发现 /volumeUSB* 设备，可手填路径</option>';
+  sel.onchange = () => { $('srcPath').value = sel.value; save(); check(); };
+};
+$('refreshSrc').click();
+
+$('mkOut').onclick = async () => {
+  const r = await api('mkdir', {path: $('outPath').value.trim()});
+  $('outHint').textContent = r.ok ? '已创建/已存在' : (r.error || '创建失败');
+  $('outHint').style.color = r.ok ? '#080' : '#c00';
+};
+
+$('btnPreview').onclick = async () => {
+  const body = {source: $('srcPath').value.trim(), output: $('outPath').value.trim(),
+    brandFolder: $('optBrand').checked, handleJpg: $('optJpg').checked,
+    handleVideo: $('optVideo').checked, staging: $('optStaging').checked};
+  if (!body.source || !body.output) { alert('请先填写源与输出目录'); return; }
+  $('prevSummary').textContent = '正在扫描源（读卡较慢，请稍候）...';
+  $('previewBox').style.display = 'block'; $('previewBox').dataset.ready = '';
+  const r = await api('preview', body);
+  if (!r.ok) { $('prevSummary').textContent=''; $('prevWarn').textContent = r.error; return; }
+  const d = r.result;
+  $('prevSummary').innerHTML = '<b>' + d.total + '</b> 个文件 / ' + (d.size/1073741824).toFixed(2)
+    + ' GB ｜ 日期 ' + (d.date_range[0]||'?') + ' ~ ' + (d.date_range[1]||'?')
+    + ' ｜ ExifTool: ' + (d.exiftool ? '可用' : '未找到（视频日期会退化）');
+  let w = '';
+  if (d.bad_count) w += '注意：' + d.bad_count + ' 个文件只能靠文件修改时间推断日期，请核对后再执行。<br>';
+  if (d.raw_skip_hint) w += '提示：' + d.raw_skip_hint + ' 个照片读不到拍摄日期，执行时将被跳过（不拷贝）。<br>';
+  if (d.conflicts) w += '提示：' + d.conflicts + ' 个目标已存在同名文件，将自动追加 _1/_2。<br>';
+  if (d.removable && $('optMode').value === 'move')
+    w += '<b>源为可移动设备，移动模式下归档完成后将清空卡上约 ' + (d.size/1073741824).toFixed(2)
+       + ' GB 文件，此操作不可回滚。</b>';
+  $('prevWarn').innerHTML = w;
+  $('prevBody').innerHTML = (d.sample||[]).map(s => '<tr><td>' + s.src + '</td><td>' + (s.date||'—')
+    + '</td><td class="' + (s.bad?'bad':'') + '">' + s.date_from + '</td><td>' + (s.dst_rel||'') + '</td></tr>').join('');
+  $('prevToggle').textContent = '文件清单（' + d.total + ' 个文件，点击展开/折叠）';
+  $('previewBox').dataset.ready = '1'; check();
+};
+
+$('btnStart').onclick = async () => {
+  if ($('optMode').value === 'move' && isRemovable() &&
+      !confirm('确认归档后清空源设备上的文件？此操作不可回滚。')) return;
+  const r = await api('start', {source: $('srcPath').value.trim(), output: $('outPath').value.trim(),
+    mode: $('optMode').value, brandFolder: $('optBrand').checked, handleJpg: $('optJpg').checked,
+    handleVideo: $('optVideo').checked, staging: $('optStaging').checked});
+  if (!r.ok) { alert(r.error); return; }
+  tid = r.taskId; $('btnStart').disabled = true; $('btnCancel').disabled = false;
+  $('statusBox').style.display = 'block'; $('logBox').textContent = '';
+  timer = setInterval(poll, 1500); poll();
+};
+
+async function poll(){
+  const r = await api('status', {id: tid, output: $('outPath').value.trim()});
+  if (!r.ok) return;
+  const s = r.state;
+  const pct = s.total ? Math.round(s.current/s.total*100) : 0;
+  $('progFill').style.width = pct + '%';
+  $('progText').textContent = s.status + '  ' + s.current + '/' + s.total
+    + ' ｜ 成功 ' + s.success + ' 失败 ' + s.failed + ' 跳过 ' + s.skipped;
+  $('logBox').textContent = (s.logs||[]).slice(-80).map(l => '[' + l.t + '] ' + (l.msg || l.dst || l.src)).join('\n');
+  $('logBox').scrollTop = $('logBox').scrollHeight;
+  if (['done','error','cancelled','rolled_back'].indexOf(s.status) >= 0) {
+    clearInterval(timer); $('btnCancel').disabled = true; $('btnStart').disabled = false;
+    if (s.status === 'done') alert('RAW 归档完成：成功 ' + s.success + ' 个');
+  }
+}
+
+$('btnCancel').onclick = async () => { const r = await api('cancel', {taskId: tid, output: $('outPath').value.trim()});
+  if (!r.ok) alert(r.error); };
+$('btnCleanup').onclick = async () => {
+  if (!tid) tid = prompt('输入任务ID（输出目录 .rawarchiver/tasks/ 下的目录名）');
+  if (!tid) return;
+  const r = await api('cleanup', {taskId: tid, output: $('outPath').value.trim()});
+  alert(r.ok ? ('已删除 ' + r.deleted + ' 个' + (r.kept && r.kept.length ? ('，保留 ' + r.kept.length + ' 个（大小校验未过）') : '')) : r.error);
+};
+$('btnRollback').onclick = async () => {
+  if ($('optMode').value === 'move') { alert('移动模式下源文件已清除，无法回滚，请依靠 _report_*.json 清单处理。'); return; }
+  if (!tid) { alert('请先执行或输入任务ID'); return; }
+  if (!confirm('确认把本任务已归档的文件移回输出目录下的 _restored/ ？')) return;
+  const r = await api('rollback', {taskId: tid, output: $('outPath').value.trim()});
+  alert(r.ok ? ('已还原 ' + r.restored + ' 个到 ' + r.to) : r.error);
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+#!/bin/bash
+# 设置变更后：按新的 pip 镜像源重装可选依赖（与 install_callback 同源逻辑）。
+
+APP_NAME="rawarchiver"
+DEST="${TRIM_APPDEST:-/var/apps/${APP_NAME}/target}"
+VAR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
+LOG_FILE="${VAR}/config_callback.log"
+mkdir -p "${VAR}" 2>/dev/null
+exec >>"${LOG_FILE}" 2>&1
+echo "===== config_callback 开始 $(date) wizard_pip_index=${wizard_pip_index:-} ====="
+
+PYB="$(command -v python3 2>/dev/null || command -v python 2>/dev/null)"
+[ -n "${PYB}" ] && printf '%s' "${PYB}" > "${VAR}/python_path"
+idx="${wizard_pip_index:-}"
+if [ -n "${idx}" ] && [ "${idx}" != "none" ] && [ -n "${PYB}" ]; then
+    [ -d "${VAR}/venv" ] || "${PYB}" -m venv "${VAR}/venv" 2>/dev/null
+    "${VAR}/venv/bin/pip" install --disable-pip-version-check -i "${idx}" exifread Pillow >/dev/null 2>&1 && \
+    printf '%s' "${VAR}/venv/bin/python3" > "${VAR}/python_path" && echo "重装成功" || echo "重装失败，继续使用随包 ExifTool"
+fi
+echo "===== config_callback 结束 $(date) ====="
+exit 0

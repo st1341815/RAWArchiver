@@ -1,0 +1,16 @@
+#!/bin/bash
+# RAW 归档 —— 运行控制
+#
+# 本应用通过 fnOS 的 CGI 入口（/cgi/ThirdParty/rawarchiver/index.cgi/）按需执行，
+# 没有常驻进程，因此 start/stop 是空操作，status 始终返回“运行中”。
+# manifest 中已设置 ctl_stop=true，应用中心显示为运行中。
+
+ACTION="$1"
+
+case "$ACTION" in
+  start)   exit 0 ;;
+  stop)    exit 0 ;;
+  status)  exit 0 ;;   # 0 = 运行中，3 = 未运行
+  restart) "$0" stop; "$0" start ;;
+  *)       exit 1 ;;
+esac

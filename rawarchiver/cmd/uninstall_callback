@@ -1,0 +1,4 @@
+#!/bin/bash
+# 卸载后：清掉可能残留的后台任务进程。
+pkill -f "scripts/raw_archiver.py" 2>/dev/null || true
+exit 0

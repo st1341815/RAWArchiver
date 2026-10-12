@@ -1,0 +1,14 @@
+appname               = rawarchiver
+version               = 1.0.3
+display_name          = RAW 归档
+desc                  = 相机照片/视频按拍摄日期（EXIF）归档工具。从 SD/TF/U 盘或本地目录读取拍摄日期，按 YYYYMMDD 归档到指定 NAS 目录；源只读、可断点续跑、可清源，并生成机器可消费的报告。内置 ExifTool；照片无 EXIF 视为未知并跳过，视频可用文件时间兜底。
+source                = thirdparty
+platform              = all
+maintainer            = uncle13
+distributor           = uncle13
+desktop_uidir         = ui
+desktop_applaunchname = rawarchiver.Application
+ctl_stop              = true
+checkport             = false
+disable_authorization_path = false
+changelog             = 首个版本：按 EXIF 拍摄日期归档 RAW/JPG/视频；预览 / 复制 / 移动、断点续跑、清源与报告。

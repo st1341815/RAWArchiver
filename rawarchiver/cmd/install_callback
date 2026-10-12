@@ -1,0 +1,49 @@
+#!/bin/bash
+# 安装后：准备运行环境（可选 venv + exifread/Pillow），记录解释器与已授权目录。
+#
+# 依赖装不上不会导致安装失败——应用内置随包 ExifTool，可独立解析拍摄日期。
+
+APP_NAME="rawarchiver"
+DEST="${TRIM_APPDEST:-/var/apps/${APP_NAME}/target}"
+VAR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
+LOG_FILE="${VAR}/install_callback.log"
+
+mkdir -p "${VAR}" 2>/dev/null
+exec >>"${LOG_FILE}" 2>&1
+
+echo "===== RAW 归档 install_callback 开始 $(date) ====="
+echo "TRIM_APPDEST=${TRIM_APPDEST:-}  TRIM_PKGVAR=${TRIM_PKGVAR:-}"
+echo "TRIM_RUN_USERNAME=${TRIM_RUN_USERNAME:-}  TRIM_USERNAME=${TRIM_USERNAME:-}"
+echo "wizard_pip_index=${wizard_pip_index:-（未提供）}"
+
+# 可执行权限
+[ -f "${DEST}/vendor/exiftool/exiftool" ] && chmod +x "${DEST}/vendor/exiftool/exiftool"
+chmod +x "${DEST}/scripts/"*.sh 2>/dev/null || true
+[ -f "${DEST}/ui/index.cgi" ] && chmod +x "${DEST}/ui/index.cgi"
+[ -f "${DEST}/api/index.cgi" ] && chmod +x "${DEST}/api/index.cgi"
+
+# 记录 python 解释器（venv 优先，失败回退系统 python3）
+PYB="$(command -v python3 2>/dev/null || command -v python 2>/dev/null)"
+[ -n "${PYB}" ] && printf '%s' "${PYB}" > "${VAR}/python_path"
+
+idx="${wizard_pip_index:-}"
+if [ -n "${idx}" ] && [ "${idx}" != "none" ] && [ -n "${PYB}" ]; then
+    echo "尝试安装可选依赖 exifread/Pillow（镜像：${idx}）"
+    "${PYB}" -m venv "${VAR}/venv" 2>/dev/null && \
+    "${VAR}/venv/bin/pip" install --disable-pip-version-check -i "${idx}" exifread Pillow >/dev/null 2>&1 && \
+    printf '%s' "${VAR}/venv/bin/python3" > "${VAR}/python_path" && \
+    echo "可选依赖安装成功：${VAR}/venv" || echo "可选依赖安装失败，运行时将使用随包 ExifTool"
+fi
+
+# 记录已授权目录（CGI 环境可能不带 TRIM_* 变量，落一份到 var）
+: > "${VAR}/authorized_paths"
+for env_name in TRIM_DATA_ACCESSIBLE_PATHS TRIM_DATA_SHARE_PATHS; do
+    val="${!env_name:-}"
+    [ -z "${val}" ] && continue
+    printf '%s\n' "${val}" | tr ':' '\n' | while read -r p; do
+        [ -n "${p}" ] && grep -qxF "${p}" "${VAR}/authorized_paths" 2>/dev/null || printf '%s\n' "${p}" >> "${VAR}/authorized_paths"
+    done
+done
+
+echo "===== RAW 归档 install_callback 结束 $(date) rc=0 ====="
+exit 0

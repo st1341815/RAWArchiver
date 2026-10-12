@@ -1,0 +1,6 @@
+#!/bin/bash
+# 升级后：刷新可执行权限（依赖与授权目录由 install/config 流程维护）。
+DEST="${TRIM_APPDEST:-/var/apps/rawarchiver/target}"
+[ -f "${DEST}/vendor/exiftool/exiftool" ] && chmod +x "${DEST}/vendor/exiftool/exiftool"
+chmod +x "${DEST}/ui/index.cgi" "${DEST}/api/index.cgi" 2>/dev/null || true
+exit 0

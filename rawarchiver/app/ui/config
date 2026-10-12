@@ -1,0 +1,14 @@
+{
+  ".url": {
+    "rawarchiver.Application": {
+      "title": "RAW 归档",
+      "icon": "images/icon_{0}.png",
+      "type": "iframe",
+      "protocol": "http",
+      "url": "/cgi/ThirdParty/rawarchiver/index.cgi/",
+      "allUsers": true,
+      "width": 900,
+      "height": 720
+    }
+  }
+}

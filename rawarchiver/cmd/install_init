@@ -1,0 +1,13 @@
+#!/bin/bash
+# 安装前检查：CGI 与核心脚本都依赖 python3。
+
+if command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1; then
+    exit 0
+fi
+
+MSG="未找到 python3，RAW 归档 无法运行。请确认 fnOS 运行环境已安装 Python3。"
+if [ -n "${TRIM_TEMP_LOGFILE:-}" ]; then
+    printf '%s\n' "$MSG" >"$TRIM_TEMP_LOGFILE"
+fi
+echo "$MSG" >&2
+exit 1
