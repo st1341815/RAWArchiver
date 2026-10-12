@@ -48,7 +48,6 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 <label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optBrand"> 按品牌分层</label>
 <label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optJpg" checked> 处理 JPG</label>
 <label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optVideo" checked> 处理视频</label>
-<label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optMonth" checked> 月份平铺副本</label>
 <label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optStaging" checked> 内部暂存（卡源推荐）</label>
 </div>
 
@@ -124,7 +123,7 @@ $('mkOut').onclick = async () => {
 $('btnPreview').onclick = async () => {
   const body = {source: $('srcPath').value.trim(), output: $('outPath').value.trim(),
     brandFolder: $('optBrand').checked, handleJpg: $('optJpg').checked,
-    handleVideo: $('optVideo').checked, monthDir: $('optMonth').checked, staging: $('optStaging').checked};
+    handleVideo: $('optVideo').checked, staging: $('optStaging').checked};
   if (!body.source || !body.output) { alert('请先填写源与输出目录'); return; }
   $('prevSummary').textContent = '正在扫描源（读卡较慢，请稍候）...';
   $('previewBox').style.display = 'block'; $('previewBox').dataset.ready = '';
@@ -152,7 +151,7 @@ $('btnStart').onclick = async () => {
       !confirm('确认归档后清空源设备上的文件？此操作不可回滚。')) return;
   const r = await api('start', {source: $('srcPath').value.trim(), output: $('outPath').value.trim(),
     mode: $('optMode').value, brandFolder: $('optBrand').checked, handleJpg: $('optJpg').checked,
-    handleVideo: $('optVideo').checked, monthDir: $('optMonth').checked, staging: $('optStaging').checked});
+    handleVideo: $('optVideo').checked, staging: $('optStaging').checked});
   if (!r.ok) { alert(r.error); return; }
   tid = r.taskId; $('btnStart').disabled = true; $('btnCancel').disabled = false;
   $('statusBox').style.display = 'block'; $('logBox').textContent = '';
