@@ -43,7 +43,7 @@ fnos/                 fnOS（飞牛）应用包工程
 
 ## 版本
 
-- 当前 `1.0.3`。核心与 fnOS 包的最新改动见 `RAWArchiver/CHANGELOG.md`。
+- 当前 `1.0.5`（更换应用图标）。核心与 fnOS 包的最新改动见 `RAWArchiver/CHANGELOG.md`。
 
 ---
 

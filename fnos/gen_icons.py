@@ -1,7 +1,7 @@
 import sys, os
 from PIL import Image, ImageDraw, ImageFont
 
-PKG = "/vol2/@appshare/octop-native/data/.octop/agents/ZJRYZS/generated/rawarchiver-fpk/rawarchiver"
+PKG = "/vol2/@appshare/octop-native/data/.octop/agents/ZJRYZS/generated/rawarchiver-fpk/fnos/rawarchiver"
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
 
