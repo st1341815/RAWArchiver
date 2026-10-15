@@ -5,7 +5,7 @@
 请求：POST，body 为 JSON {"action": ..., ...}（action 也可放在 query 上）。
 响应：Content-Type: application/json，body 为单个 JSON。
 
-动作：info / doctor / devices / mkdir / preview / start / status / cancel / cleanup / rollback
+动作：info / doctor / devices / browse / mkdir / preview / start / status / cancel / cleanup / rollback
 说明：所有实际归档逻辑都在随包核心脚本 scripts/raw_archiver.py（只用标准库）；
      本 API 只做参数转发与状态读取。照片无 EXIF 视为未知并跳过，视频可用文件时间兜底。
 """
@@ -98,6 +98,36 @@ def list_devices():
     return out
 
 
+def browse_dirs(path):
+    """列出目录下的一级子目录，供前端「选取文件夹」弹窗导航。
+
+    只返回目录、跳过隐藏项（点号开头）。parent 为 None 表示已到根目录；
+    writable 供前端提示当前目录是否可写。
+    """
+    try:
+        p = Path(os.path.abspath((path or "").strip() or "/"))
+        if not p.is_dir():
+            return {"ok": False, "error": "不是目录: %s" % p}
+        dirs = []
+        try:
+            entries = sorted(p.iterdir(), key=lambda c: c.name.lower())
+        except OSError as e:
+            return {"ok": False, "error": "无法读取目录: %s" % e}
+        for c in entries:
+            if c.name.startswith("."):
+                continue
+            try:
+                if c.is_dir():
+                    dirs.append({"name": c.name, "path": str(c)})
+            except OSError:
+                continue
+        parent = str(p.parent) if str(p) != p.anchor else None
+        return {"ok": True, "path": str(p), "parent": parent,
+                "writable": os.access(str(p), os.W_OK), "dirs": dirs}
+    except OSError as e:
+        return {"ok": False, "error": str(e)}
+
+
 def main():
     body = read_body()
     b = {}
@@ -113,12 +143,14 @@ def main():
     out = (b.get("output") or "").strip()
 
     if act == "info":
-        emit({"ok": True, "app": "RAW 归档", "version": "1.0.0", "mode": "fnos-cgi",
+        emit({"ok": True, "app": "RAW 归档", "version": "1.0.6", "mode": "fnos-cgi",
               "script": SCRIPT, "python": pybin()})
     elif act == "doctor":
         emit({"ok": True, "result": json.loads(call("--doctor"))})
     elif act == "devices":
         emit({"ok": True, "list": list_devices()})
+    elif act == "browse":
+        emit(browse_dirs(b.get("path", "")))
     elif act == "mkdir":
         p = b.get("path", "")
         if not p:
