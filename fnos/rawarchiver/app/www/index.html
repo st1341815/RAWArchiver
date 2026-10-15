@@ -35,7 +35,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 </style>
 </head>
 <body>
-<h1>RAW 归档 <small>v1.0.7</small></h1>
+<h1>RAW 归档 <small>v1.0.8</small></h1>
 
 <label>源（SD/TF/U盘或本地目录）
   <div class="row" style="margin-top:4px">
@@ -138,20 +138,26 @@ const api = (act, body={}) => fetch(API + '?action=' + act, {
 // ---- 飞牛「原生文件夹选择框」桥接（TrimApp SDK）----
 // 应用在飞牛桌面里以 iframe 打开时，宿主（桌面）通过 TrimApp 暴露 pickFile 等方法；
 // 此时用飞牛自带的文件夹选择框；不在飞牛里（如直接开页面）则 isWeb 但 standalone，走自带浏览器兜底。
+// ⚠️ SDK 的 ready() 在宿主不响应时可能永久挂起（其内部第二段握手无超时），
+//    所以这里对 ready() 与 pickFile() 都加了硬超时，超时/异常一律回落自带目录浏览器，
+//    保证按钮点下去一定会有反应。
+const withTimeout = (p, ms, what) =>
+  Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ' timeout')), ms))]);
 const native = (function () {
   try { return new TrimApp(); } catch (e) { return null; }
 })();
 const nativeReady = (async () => {
   if (!native) return false;
-  try { await native.ready(); } catch (e) { return false; }
+  try { await withTimeout(native.ready(), 3000, 'bridge'); } catch (e) { return false; }
   return !!(native.isWeb && !native.isStandaloneWeb);
 })();
 async function pickFolderNative() {
   if (!(await nativeReady)) return null;             // 宿主桥不可用
   try {
-    const res = await native.pickFile({ directory: true, multiple: false });
-    if (Array.isArray(res)) return res;               // 数组（可能为空 = 用户取消）
-    return null;                                      // undefined/异常 -> 回落
+    const res = await withTimeout(
+      native.pickFile({ directory: true, multiple: false }), 8000, 'pickFile');
+    if (Array.isArray(res) && res.length) return res; // 拿到真实路径才用；其余一律回落
+    return null;
   } catch (e) { return null; }
 }
 
