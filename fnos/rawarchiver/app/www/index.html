@@ -35,7 +35,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 </style>
 </head>
 <body>
-<h1>RAW 归档 <small>v1.0.8</small></h1>
+<h1>RAW 归档 <small>v1.0.9</small></h1>
 
 <label>源（SD/TF/U盘或本地目录）
   <div class="row" style="margin-top:4px">
@@ -119,8 +119,6 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 <footer>RAW 归档 · 源设备只读优先，移动模式仅在归档全部成功后清源 · 任务态写在 &lt;输出目录&gt;/.rawarchiver/</footer>
 
 <script type="module">
-import TrimApp from './fnapp-sdk.js';
-
 // fnOS CGI 入口是 /cgi/ThirdParty/<app>/index.cgi/<subpath>；API 固定走 <...>/index.cgi/api
 // （注意：不要再拼尾随的 index.cgi，否则会被 fnOS 的 CGI 处理器按 .cgi 子路径拦截、返回非 JSON）
 const API = (function () {
@@ -135,30 +133,50 @@ const api = (act, body={}) => fetch(API + '?action=' + act, {
   body: JSON.stringify(Object.assign({action:act}, body))
 }).then(r => r.json()).catch(e => ({ok:false, error:'请求失败: ' + e}));
 
-// ---- 飞牛「原生文件夹选择框」桥接（TrimApp SDK）----
-// 应用在飞牛桌面里以 iframe 打开时，宿主（桌面）通过 TrimApp 暴露 pickFile 等方法；
-// 此时用飞牛自带的文件夹选择框；不在飞牛里（如直接开页面）则 isWeb 但 standalone，走自带浏览器兜底。
-// ⚠️ SDK 的 ready() 在宿主不响应时可能永久挂起（其内部第二段握手无超时），
-//    所以这里对 ready() 与 pickFile() 都加了硬超时，超时/异常一律回落自带目录浏览器，
-//    保证按钮点下去一定会有反应。
-const withTimeout = (p, ms, what) =>
-  Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ' timeout')), ms))]);
-const native = (function () {
-  try { return new TrimApp(); } catch (e) { return null; }
+// ---- 飞牛原生「文件夹选择框」：走宿主 /app-auth 重定向流（参考 file.dedupe 的做法）----
+// 宿主暴露 /app-auth/:method 页面，无需任何桥接、普通 URL 导航即可：
+//   打开 /app-auth/pick-file?appName=rawarchiver&directory=true&redirect_uri=<回调页>&state=<随机>
+//   宿主弹出原生目录选择框，选完把窗口 302 到 redirect_uri?path=<JSON数组>&status=success&state=...
+//   回调页（同源静态页 auth-callback.html）解析后 postMessage 回本窗口。
+const APP_BASE = (function () {
+  const p = location.pathname, i = p.indexOf('index.cgi');
+  return i >= 0 ? p.slice(0, i + 'index.cgi'.length) : '/app/rawarchiver';
 })();
-const nativeReady = (async () => {
-  if (!native) return false;
-  try { await withTimeout(native.ready(), 3000, 'bridge'); } catch (e) { return false; }
-  return !!(native.isWeb && !native.isStandaloneWeb);
-})();
-async function pickFolderNative() {
-  if (!(await nativeReady)) return null;             // 宿主桥不可用
-  try {
-    const res = await withTimeout(
-      native.pickFile({ directory: true, multiple: false }), 8000, 'pickFile');
-    if (Array.isArray(res) && res.length) return res; // 拿到真实路径才用；其余一律回落
-    return null;
-  } catch (e) { return null; }
+const AUTH_CALLBACK = APP_BASE + '/auth-callback.html';
+const AUTH_STATE_KEY = 'rawarchiver:fnnas-app-auth-request';
+const AUTH_MSG = 'rawarchiver:fnnas-app-auth';
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
+  : Date.now() + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2));
+
+// 返回所选文件夹路径数组；失败 / 取消 / 弹窗被拦则返回 null（由调用方回落内置目录浏览器）
+function pickFolderNative() {
+  return new Promise((resolve) => {
+    const state = uuid();
+    sessionStorage.setItem(AUTH_STATE_KEY, JSON.stringify({ state, method: 'pickFile' }));
+    const cb = location.origin + AUTH_CALLBACK;
+    const url = location.origin + '/app-auth/pick-file'
+      + '?appName=rawarchiver&directory=true'
+      + '&redirect_uri=' + encodeURIComponent(cb)
+      + '&state=' + encodeURIComponent(state);
+    let win = null;
+    try { win = window.open(url, '_blank'); } catch (e) { win = null; }
+    if (!win) { sessionStorage.removeItem(AUTH_STATE_KEY); resolve(null); return; }
+    let done = false;
+    const finish = (paths) => {
+      if (done) return; done = true;
+      clearTimeout(timer); window.removeEventListener('message', onMsg);
+      sessionStorage.removeItem(AUTH_STATE_KEY); resolve(paths);
+    };
+    const timer = setTimeout(() => finish(null), 120000);
+    const onMsg = (ev) => {
+      if (ev.origin !== location.origin || !ev.data || ev.data.type !== AUTH_MSG) return;
+      const r = ev.data.result;
+      if (!r || r.state !== state || r.method !== 'pickFile') return;
+      if (ev.data.stateValid === false || ev.data.methodValid === false) { finish(null); return; }
+      finish(Array.isArray(r.path) && r.path.length ? r.path : null);
+    };
+    window.addEventListener('message', onMsg);
+  });
 }
 
 let tid = null, timer = null;
@@ -236,7 +254,7 @@ $('browseOut').onclick = async () => {
     }
     return;                                   // 空数组 = 用户取消，不再弹自带框
   }
-  openDirPicker();                            // 宿主桥不可用 -> 自带目录浏览器兜底
+  openDirPicker();                            // 原生框没选到/被拦 -> 内置目录浏览器兜底
 };
 $('dirClose').onclick = $('dirCancel').onclick = () => { $('dirModal').style.display = 'none'; };
 $('dirUp').onclick = () => { if (dirParent) loadDir(dirParent); };

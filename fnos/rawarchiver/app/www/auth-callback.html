@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>选择输出目录</title>
+<style>
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh;margin:0;display:grid;place-items:center;background:#f5f5f5;color:#222}
+main{width:min(420px,calc(100vw - 40px));padding:28px;text-align:center;border:1px solid #ddd;border-radius:12px;background:#fff}
+p{color:#666}
+</style>
+</head>
+<body>
+<main>
+  <h3>RAW 归档</h3>
+  <p id="st">正在处理目录选择结果…</p>
+</main>
+<script>
+(function () {
+  var KEY = 'rawarchiver:fnnas-app-auth-request';
+  var MSG = 'rawarchiver:fnnas-app-auth';
+  var st = document.getElementById('st');
+  function show(t, ok) { st.textContent = t; st.style.color = ok === false ? '#c14c41' : (ok === true ? '#159864' : '#666'); }
+  try {
+    var p = new URLSearchParams(location.search);
+    var path;
+    try {
+      var v = JSON.parse(p.get('path') || '');
+      path = (Array.isArray(v) && v.every(function (x) { return typeof x === 'string'; })) ? v : undefined;
+    } catch (e) { path = undefined; }
+    var result = {
+      status: p.get('status') || undefined,
+      error: p.get('error') || undefined,
+      method: p.get('method') || undefined,
+      appName: p.get('appName') || undefined,
+      state: p.get('state') || undefined,
+      path: path
+    };
+    var saved = {};
+    try { saved = JSON.parse(sessionStorage.getItem(KEY) || '{}') || {}; } catch (e) {}
+    var stateValid = !!saved.state && result.state === saved.state;
+    var methodValid = !!saved.method && result.method === saved.method;
+    if (window.opener && window.opener !== window) {
+      window.opener.postMessage({ type: MSG, result: result, stateValid: stateValid, methodValid: methodValid }, location.origin);
+    }
+    if (!stateValid || !methodValid) {
+      show('目录选择校验失败，请关闭窗口后重试。', false);
+    } else if (result.status === 'success') {
+      show('目录选择完成，窗口即将关闭。', true);
+      setTimeout(function () { window.close(); }, 350);
+    } else if (result.status === 'cancel') {
+      show('已取消选择，窗口即将关闭。');
+      setTimeout(function () { window.close(); }, 600);
+    } else {
+      show('目录选择失败，请关闭窗口后重试。', false);
+    }
+  } catch (e) {
+    show(e && e.message ? e.message : '无法解析选择结果，请关闭窗口后重试。', false);
+  }
+})();
+</script>
+</body>
+</html>

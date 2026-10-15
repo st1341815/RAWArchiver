@@ -43,7 +43,7 @@ fnos/                 fnOS（飞牛）应用包工程
 
 ## 版本
 
-- 当前 `1.0.8`（输出目录「选取文件夹」优先调用飞牛自带文件夹选择框，宿主不可用时自动回落内置目录浏览器）。核心与 fnOS 包的最新改动见 `RAWArchiver/CHANGELOG.md`。
+- 当前 `1.0.9`（输出目录「选取文件夹」走飞牛宿主 `/app-auth` 原生目录选择器，参考 file.dedupe；不可用时回落内置目录浏览器）。核心与 fnOS 包的最新改动见 `RAWArchiver/CHANGELOG.md`。
 
 ---
 
