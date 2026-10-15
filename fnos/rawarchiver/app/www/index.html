@@ -152,19 +152,16 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
 function pickFolderNative() {
   return new Promise((resolve) => {
     const state = uuid();
-    sessionStorage.setItem(AUTH_STATE_KEY, JSON.stringify({ state, method: 'pickFile' }));
+    sessionStorage.setItem(AUTH_STATE_KEY, JSON.stringify({ state, method: 'pickSharedFile' }));
     const cb = location.origin + AUTH_CALLBACK;
-    // sidebarGroup 控制选择框左侧分组；加上 storage（存储空间）才能让管理员看到全卷/管理员视角。
-    const url = location.origin + '/app-auth/pick-file'
-      + '?appName=rawarchiver&directory=true'
-      + '&sidebarGroup=' + encodeURIComponent('myFiles,team,otherShare,external,remote,favorites,storage')
-      + '&redirect_uri=' + encodeURIComponent(cb)
+    // 完全对齐「文件查重」(file.dedupe) 的调用方式：pick-shared-file（共享文件夹授权）、
+    // 相同 sidebarGroup、redirectUri（驼峰，非下划线）、窗口特征仅 width/height。
+    const url = location.origin + '/app-auth/pick-shared-file'
+      + '?appName=rawarchiver'
+      + '&sidebarGroup=' + encodeURIComponent('myFiles,otherShare,external,remote,favorites,team')
+      + '&redirectUri=' + encodeURIComponent(cb)
       + '&state=' + encodeURIComponent(state);
-    const W = 750, H = 630;
-    const feats = 'width=' + W + ',height=' + H
-      + ',left=' + Math.max(0, Math.round((screen.width - W) / 2))
-      + ',top=' + Math.max(0, Math.round((screen.height - H) / 2))
-      + ',resizable=yes,scrollbars=yes';
+    const feats = 'width=750,height=630';
     let win = null;
     try { win = window.open(url, '_blank', feats); } catch (e) { win = null; }
     if (!win) { sessionStorage.removeItem(AUTH_STATE_KEY); resolve(null); return; }
