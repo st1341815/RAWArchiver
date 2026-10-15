@@ -35,7 +35,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 </style>
 </head>
 <body>
-<h1>RAW 归档 <small>v1.0.10</small></h1>
+<h1>RAW 归档 <small>v1.0.11</small></h1>
 
 <label>源（SD/TF/U盘或本地目录）
   <div class="row" style="margin-top:4px">
@@ -160,8 +160,13 @@ function pickFolderNative() {
       + '&sidebarGroup=' + encodeURIComponent('myFiles,team,otherShare,external,remote,favorites,storage')
       + '&redirect_uri=' + encodeURIComponent(cb)
       + '&state=' + encodeURIComponent(state);
+    const W = 750, H = 630;
+    const feats = 'width=' + W + ',height=' + H
+      + ',left=' + Math.max(0, Math.round((screen.width - W) / 2))
+      + ',top=' + Math.max(0, Math.round((screen.height - H) / 2))
+      + ',resizable=yes,scrollbars=yes';
     let win = null;
-    try { win = window.open(url, '_blank'); } catch (e) { win = null; }
+    try { win = window.open(url, '_blank', feats); } catch (e) { win = null; }
     if (!win) { sessionStorage.removeItem(AUTH_STATE_KEY); resolve(null); return; }
     let done = false;
     const finish = (paths) => {
