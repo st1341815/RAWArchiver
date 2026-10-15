@@ -25,8 +25,8 @@ APP_NAME = "rawarchiver"
 GATEWAY_PREFIX = "/app/" + APP_NAME
 
 SELF = os.path.abspath(__file__)
-# 本脚本放在 app/ 下，APP_DEST = .../target
-APP_DEST = os.path.dirname(os.path.dirname(SELF))
+# 本脚本在打包后位于 target 根目录（app/server.py -> .../target/server.py）
+APP_DEST = os.path.dirname(SELF)
 SCRIPT = os.path.join(APP_DEST, "scripts", "raw_archiver.py")
 WWW = os.path.join(APP_DEST, "www")
 APP_VAR = os.environ.get("TRIM_PKGVAR") or "/var/apps/%s/var" % APP_NAME
