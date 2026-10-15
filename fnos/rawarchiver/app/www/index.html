@@ -35,7 +35,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 </style>
 </head>
 <body>
-<h1>RAW 归档 <small>v1.0.9</small></h1>
+<h1>RAW 归档 <small>v1.0.10</small></h1>
 
 <label>源（SD/TF/U盘或本地目录）
   <div class="row" style="margin-top:4px">
@@ -154,8 +154,10 @@ function pickFolderNative() {
     const state = uuid();
     sessionStorage.setItem(AUTH_STATE_KEY, JSON.stringify({ state, method: 'pickFile' }));
     const cb = location.origin + AUTH_CALLBACK;
+    // sidebarGroup 控制选择框左侧分组；加上 storage（存储空间）才能让管理员看到全卷/管理员视角。
     const url = location.origin + '/app-auth/pick-file'
       + '?appName=rawarchiver&directory=true'
+      + '&sidebarGroup=' + encodeURIComponent('myFiles,team,otherShare,external,remote,favorites,storage')
       + '&redirect_uri=' + encodeURIComponent(cb)
       + '&state=' + encodeURIComponent(state);
     let win = null;
