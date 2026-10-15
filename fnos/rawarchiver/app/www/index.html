@@ -35,7 +35,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 </style>
 </head>
 <body>
-<h1>RAW 归档 <small>v1.0.6</small></h1>
+<h1>RAW 归档 <small>v1.0.7</small></h1>
 
 <label>源（SD/TF/U盘或本地目录）
   <div class="row" style="margin-top:4px">
@@ -118,7 +118,9 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 
 <footer>RAW 归档 · 源设备只读优先，移动模式仅在归档全部成功后清源 · 任务态写在 &lt;输出目录&gt;/.rawarchiver/</footer>
 
-<script>
+<script type="module">
+import TrimApp from './fnapp-sdk.js';
+
 // fnOS CGI 入口是 /cgi/ThirdParty/<app>/index.cgi/<subpath>；API 固定走 <...>/index.cgi/api
 // （注意：不要再拼尾随的 index.cgi，否则会被 fnOS 的 CGI 处理器按 .cgi 子路径拦截、返回非 JSON）
 const API = (function () {
@@ -132,6 +134,26 @@ const api = (act, body={}) => fetch(API + '?action=' + act, {
   method:'POST', headers:{'Content-Type':'application/json'},
   body: JSON.stringify(Object.assign({action:act}, body))
 }).then(r => r.json()).catch(e => ({ok:false, error:'请求失败: ' + e}));
+
+// ---- 飞牛「原生文件夹选择框」桥接（TrimApp SDK）----
+// 应用在飞牛桌面里以 iframe 打开时，宿主（桌面）通过 TrimApp 暴露 pickFile 等方法；
+// 此时用飞牛自带的文件夹选择框；不在飞牛里（如直接开页面）则 isWeb 但 standalone，走自带浏览器兜底。
+const native = (function () {
+  try { return new TrimApp(); } catch (e) { return null; }
+})();
+const nativeReady = (async () => {
+  if (!native) return false;
+  try { await native.ready(); } catch (e) { return false; }
+  return !!(native.isWeb && !native.isStandaloneWeb);
+})();
+async function pickFolderNative() {
+  if (!(await nativeReady)) return null;             // 宿主桥不可用
+  try {
+    const res = await native.pickFile({ directory: true, multiple: false });
+    if (Array.isArray(res)) return res;               // 数组（可能为空 = 用户取消）
+    return null;                                      // undefined/异常 -> 回落
+  } catch (e) { return null; }
+}
 
 let tid = null, timer = null;
 const save = () => localStorage.setItem(LS, JSON.stringify({src:$('srcPath').value, out:$('outPath').value, mode:$('optMode').value}));
@@ -197,7 +219,19 @@ async function openDirPicker(){
   const start = $('outPath').value.trim();
   if (!(await loadDir(start || '/'))) await loadDir('/');
 }
-$('browseOut').onclick = openDirPicker;
+$('browseOut').onclick = async () => {
+  const paths = await pickFolderNative();
+  if (paths !== null) {                       // 用了飞牛自带选择框
+    if (paths.length) {
+      $('outPath').value = paths[0];
+      $('outHint').textContent = '已选择：' + paths[0];
+      $('outHint').style.color = '#080';
+      save(); check();
+    }
+    return;                                   // 空数组 = 用户取消，不再弹自带框
+  }
+  openDirPicker();                            // 宿主桥不可用 -> 自带目录浏览器兜底
+};
 $('dirClose').onclick = $('dirCancel').onclick = () => { $('dirModal').style.display = 'none'; };
 $('dirUp').onclick = () => { if (dirParent) loadDir(dirParent); };
 $('dirRoot').onclick = () => loadDir('/');
