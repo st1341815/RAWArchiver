@@ -14,6 +14,7 @@ FN="${1:-/usr/local/bin/fnpack}"
 echo "[1/3] 可执行权限"
 chmod +x "$PKG/cmd/"* \
          "$PKG/app/ui/index.cgi" "$PKG/app/api/index.cgi" \
+         "$PKG/app/server.py" \
          "$PKG/app/scripts/raw_archiver.py" "$PKG/app/scripts/setup.py" \
          "$PKG/app/scripts/fetch_exiftool.sh" "$PKG/app/scripts/hooks/post_done.sh" \
          "$PKG/app/vendor/exiftool/exiftool" 2>/dev/null || true

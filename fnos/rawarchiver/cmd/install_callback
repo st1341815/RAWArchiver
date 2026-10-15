@@ -21,6 +21,7 @@ echo "wizard_pip_index=${wizard_pip_index:-（未提供）}"
 chmod +x "${DEST}/scripts/"*.sh 2>/dev/null || true
 [ -f "${DEST}/ui/index.cgi" ] && chmod +x "${DEST}/ui/index.cgi"
 [ -f "${DEST}/api/index.cgi" ] && chmod +x "${DEST}/api/index.cgi"
+[ -f "${DEST}/server.py" ] && chmod +x "${DEST}/server.py"
 
 # 记录 python 解释器（venv 优先，失败回退系统 python3）
 PYB="$(command -v python3 2>/dev/null || command -v python 2>/dev/null)"
@@ -44,6 +45,13 @@ for env_name in TRIM_DATA_ACCESSIBLE_PATHS TRIM_DATA_SHARE_PATHS; do
         [ -n "${p}" ] && grep -qxF "${p}" "${VAR}/authorized_paths" 2>/dev/null || printf '%s\n' "${p}" >> "${VAR}/authorized_paths"
     done
 done
+
+# 主动启动统一网关服务（幂等；即便 fnOS 稍后再调 cmd/main start 也安全）
+MAIN="/var/apps/${APP_NAME}/cmd/main"
+[ -x "${MAIN}" ] || MAIN="${DEST%/}/cmd/main"
+if [ -x "${MAIN}" ]; then
+    "${MAIN}" start 2>/dev/null || true
+fi
 
 echo "===== RAW 归档 install_callback 结束 $(date) rc=0 ====="
 exit 0

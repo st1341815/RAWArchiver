@@ -35,7 +35,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 </style>
 </head>
 <body>
-<h1>RAW 归档 <small>v1.0.12</small></h1>
+<h1>RAW 归档 <small>v1.0.13</small></h1>
 
 <label>源（SD/TF/U盘或本地目录）
   <div class="row" style="margin-top:4px">
@@ -119,13 +119,12 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 <footer>RAW 归档 · 源设备只读优先，移动模式仅在归档全部成功后清源 · 任务态写在 &lt;输出目录&gt;/.rawarchiver/</footer>
 
 <script type="module">
-// fnOS CGI 入口是 /cgi/ThirdParty/<app>/index.cgi/<subpath>；API 固定走 <...>/index.cgi/api
-// （注意：不要再拼尾随的 index.cgi，否则会被 fnOS 的 CGI 处理器按 .cgi 子路径拦截、返回非 JSON）
-const API = (function () {
-  const p = location.pathname, i = p.indexOf('index.cgi');
-  if (i >= 0) return p.slice(0, i + 'index.cgi'.length) + '/api';
-  return '/app/rawarchiver/api/index.cgi';
-})();
+// 飞牛统一网关微应用：静态 / API 都走 /app/rawarchiver 前缀。
+// 目录选择优先用飞牛 JS SDK（TrimApp）系统内部弹窗，桥不可用时回落 window.open / 内置目录浏览器。
+import { s as TrimApp } from './assets/fnnas.js';
+
+const GATEWAY_PREFIX = '/app/rawarchiver';
+const API = GATEWAY_PREFIX + '/api';
 const LS = 'rawarchiver.state';
 const $ = id => document.getElementById(id);
 const api = (act, body={}) => fetch(API + '?action=' + act, {
@@ -133,15 +132,8 @@ const api = (act, body={}) => fetch(API + '?action=' + act, {
   body: JSON.stringify(Object.assign({action:act}, body))
 }).then(r => r.json()).catch(e => ({ok:false, error:'请求失败: ' + e}));
 
-// ---- 飞牛原生「文件夹选择框」：走宿主 /app-auth 重定向流（参考 file.dedupe 的做法）----
-// 宿主暴露 /app-auth/:method 页面，无需任何桥接、普通 URL 导航即可：
-//   打开 /app-auth/pick-file?appName=rawarchiver&directory=true&redirect_uri=<回调页>&state=<随机>
-//   宿主弹出原生目录选择框，选完把窗口 302 到 redirect_uri?path=<JSON数组>&status=success&state=...
-//   回调页（同源静态页 auth-callback.html）解析后 postMessage 回本窗口。
-const APP_BASE = (function () {
-  const p = location.pathname, i = p.indexOf('index.cgi');
-  return i >= 0 ? p.slice(0, i + 'index.cgi'.length) : '/app/rawarchiver';
-})();
+// ---- 飞牛目录选择框：优先走 JS SDK 系统内部弹窗（微应用环境），回落 window.open 重定向流 ----
+const APP_BASE = GATEWAY_PREFIX;
 const AUTH_CALLBACK = APP_BASE + '/auth-callback.html';
 const AUTH_STATE_KEY = 'rawarchiver:fnnas-app-auth-request';
 const AUTH_MSG = 'rawarchiver:fnnas-app-auth';
@@ -149,13 +141,34 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
   : Date.now() + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2));
 
 // 返回所选文件夹路径数组；失败 / 取消 / 弹窗被拦则返回 null（由调用方回落内置目录浏览器）
-function pickFolderNative() {
+async function pickFolderNative() {
+  // 1) 优先：飞牛 JS SDK 系统内部弹窗（微应用环境，非独立浏览器）
+  try {
+    const sdk = new TrimApp();
+    await sdk.ready();
+    if (!sdk.isStandaloneWeb) {
+      const r = await sdk.pickSharedFile({
+        title: '选择输出目录',
+        okText: '选择',
+        sidebarGroup: ['myFiles', 'otherShare', 'external', 'remote', 'favorites', 'team'],
+        creatable: false
+      });
+      if (r && r.code === 0) return Array.isArray(r.data) ? r.data : [];
+      // code != 0（如非管理员）→ 回落
+      return null;
+    }
+  } catch (e) {
+    // SDK 不可用 / 桥握手失败 → 回落
+  }
+  // 2) 回落：独立浏览器或桥不可用 → window.open + auth-callback
+  return pickFolderViaWindow();
+}
+
+function pickFolderViaWindow() {
   return new Promise((resolve) => {
     const state = uuid();
     sessionStorage.setItem(AUTH_STATE_KEY, JSON.stringify({ state, method: 'pickSharedFile' }));
     const cb = location.origin + AUTH_CALLBACK;
-    // 完全对齐「文件查重」(file.dedupe) 的调用方式：pick-shared-file（共享文件夹授权）、
-    // 相同 sidebarGroup、redirectUri（驼峰，非下划线）、窗口特征仅 width/height。
     const url = location.origin + '/app-auth/pick-shared-file'
       + '?appName=rawarchiver'
       + '&sidebarGroup=' + encodeURIComponent('myFiles,otherShare,external,remote,favorites,team')
@@ -175,7 +188,7 @@ function pickFolderNative() {
     const onMsg = (ev) => {
       if (ev.origin !== location.origin || !ev.data || ev.data.type !== AUTH_MSG) return;
       const r = ev.data.result;
-      if (!r || r.state !== state || r.method !== 'pickFile') return;
+      if (!r || r.state !== state || r.method !== 'pickSharedFile') return;
       if (ev.data.stateValid === false || ev.data.methodValid === false) { finish(null); return; }
       finish(Array.isArray(r.path) && r.path.length ? r.path : null);
     };

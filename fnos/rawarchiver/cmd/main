@@ -1,16 +1,84 @@
 #!/bin/bash
-# RAW 归档 —— 运行控制
+# RAW 归档 —— 运行控制（统一网关常驻服务）
 #
-# 本应用通过 fnOS 的 CGI 入口（/cgi/ThirdParty/rawarchiver/index.cgi/）按需执行，
-# 没有常驻进程，因此 start/stop 是空操作，status 始终返回“运行中”。
-# manifest 中已设置 ctl_stop=true，应用中心显示为运行中。
+# 本应用通过 fnOS 统一网关（gatewaySocket=rawarchiver.sock）访问，
+# cmd/main 负责启停常驻网关服务（app/server.py）。
+# manifest 中 ctl_stop=true，应用中心可启停。
+
+APP_NAME="rawarchiver"
+DEST="${TRIM_APPDEST:-/var/apps/${APP_NAME}/target}"
+VAR="${TRIM_PKGVAR:-/var/apps/${APP_NAME}/var}"
+PID_FILE="${VAR}/gateway.pid"
+OUT_FILE="${VAR}/gateway.out"
+SERVER="${DEST}/server.py"
+
+# 选择 python 解释器：venv 优先，回退系统 python3
+pybin() {
+    if [ -f "${VAR}/python_path" ]; then
+        local p
+        p="$(head -n 1 "${VAR}/python_path" 2>/dev/null | tr -d '[:space:]')"
+        [ -n "${p}" ] && [ -x "${p}" ] && { printf '%s' "${p}"; return 0; }
+    fi
+    if [ -x "${VAR}/venv/bin/python3" ]; then
+        printf '%s' "${VAR}/venv/bin/python3"; return 0
+    fi
+    command -v python3 2>/dev/null || command -v python 2>/dev/null
+}
+
+is_running() {
+    [ -f "${PID_FILE}" ] || return 1
+    local pid
+    pid="$(cat "${PID_FILE}" 2>/dev/null | tr -d '[:space:]')"
+    [ -n "${pid}" ] || return 1
+    kill -0 "${pid}" 2>/dev/null
+}
 
 ACTION="$1"
 
 case "$ACTION" in
-  start)   exit 0 ;;
-  stop)    exit 0 ;;
-  status)  exit 0 ;;   # 0 = 运行中，3 = 未运行
-  restart) "$0" stop; "$0" start ;;
-  *)       exit 1 ;;
+  start)
+    if is_running; then
+        exit 0
+    fi
+    mkdir -p "${VAR}" 2>/dev/null
+    PY="$(pybin)"
+    if [ -z "${PY}" ]; then
+        echo "运行环境缺少 python3" > "${TRIM_TEMP_LOGFILE:-/dev/null}" 2>/dev/null
+        exit 1
+    fi
+    chmod +x "${SERVER}" 2>/dev/null
+    nohup "${PY}" "${SERVER}" >> "${OUT_FILE}" 2>&1 &
+    echo "$!" > "${PID_FILE}"
+    # 等待 socket 就绪（最多 5 秒）
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        [ -S "${DEST}/rawarchiver.sock" ] && exit 0
+        sleep 0.5
+    done
+    is_running && exit 0 || exit 1
+    ;;
+  stop)
+    if is_running; then
+        local pid
+        pid="$(cat "${PID_FILE}" | tr -d '[:space:]')"
+        kill "${pid}" 2>/dev/null
+        sleep 1
+        kill -0 "${pid}" 2>/dev/null && kill -9 "${pid}" 2>/dev/null
+        rm -f "${PID_FILE}"
+    fi
+    rm -f "${DEST}/rawarchiver.sock" 2>/dev/null
+    exit 0
+    ;;
+  status)
+    if is_running && [ -S "${DEST}/rawarchiver.sock" ]; then
+        exit 0    # 运行中
+    fi
+    exit 3      # 未运行
+    ;;
+  restart)
+    "$0" stop
+    "$0" start
+    ;;
+  *)
+    exit 1
+    ;;
 esac

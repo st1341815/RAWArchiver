@@ -4,8 +4,10 @@
       "title": "RAW 归档",
       "icon": "images/icon_{0}.png",
       "type": "iframe",
-      "protocol": "http",
-      "url": "/cgi/ThirdParty/rawarchiver/index.cgi/",
+      "protocol": "",
+      "gatewayPrefix": "/app/rawarchiver",
+      "gatewaySocket": "rawarchiver.sock",
+      "url": "/app/rawarchiver",
       "allUsers": true,
       "width": 800,
       "height": 600
