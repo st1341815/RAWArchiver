@@ -35,7 +35,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 </style>
 </head>
 <body>
-<h1>RAW 归档 <small>v1.0.13</small></h1>
+<h1>RAW 归档 <small>v1.0.14</small></h1>
 
 <label>源（SD/TF/U盘或本地目录）
   <div class="row" style="margin-top:4px">
@@ -116,7 +116,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
   </div>
 </div>
 
-<footer>RAW 归档 · 源设备只读优先，移动模式仅在归档全部成功后清源 · 任务态写在 &lt;输出目录&gt;/.rawarchiver/</footer>
+<footer>RAW 归档 · 源目录只读，不产生任何文件或文件夹 · 任务态写在应用数据目录的 .rawarchiver/ · 日志与报告写在 &lt;输出目录&gt;/log/</footer>
 
 <script type="module">
 // 飞牛统一网关微应用：静态 / API 都走 /app/rawarchiver 前缀。
@@ -393,13 +393,13 @@ async function poll(){
 $('btnCancel').onclick = async () => { const r = await api('cancel', {taskId: tid, output: $('outPath').value.trim()});
   if (!r.ok) alert(r.error); };
 $('btnCleanup').onclick = async () => {
-  if (!tid) tid = prompt('输入任务ID（输出目录 .rawarchiver/tasks/ 下的目录名）');
+  if (!tid) tid = prompt('输入任务ID（见 <输出目录>/log/ 下日志文件名 rawarchiver_<任务ID>.log）');
   if (!tid) return;
   const r = await api('cleanup', {taskId: tid, output: $('outPath').value.trim()});
   alert(r.ok ? ('已删除 ' + r.deleted + ' 个' + (r.kept && r.kept.length ? ('，保留 ' + r.kept.length + ' 个（大小校验未过）') : '')) : r.error);
 };
 $('btnRollback').onclick = async () => {
-  if ($('optMode').value === 'move') { alert('移动模式下源文件已清除，无法回滚，请依靠 _report_*.json 清单处理。'); return; }
+  if ($('optMode').value === 'move') { alert('移动模式下源文件已清除，无法回滚，请依靠 输出目录/log/ 下的 _report_*.json 清单处理。'); return; }
   if (!tid) { alert('请先执行或输入任务ID'); return; }
   if (!confirm('确认把本任务已归档的文件移回输出目录下的 _restored/ ？')) return;
   const r = await api('rollback', {taskId: tid, output: $('outPath').value.trim()});

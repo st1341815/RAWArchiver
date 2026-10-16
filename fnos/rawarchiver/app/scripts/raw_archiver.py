@@ -3,7 +3,13 @@
 """
 RAW 归档 —— 核心处理脚本 v1.0.0
 源：U盘/SD/TF卡（只读，move 模式归档后清源）或本地目录
-输出：用户指定的任意 NAS 目录（自包含断点态 + 报告）
+输出：用户指定的任意 NAS 目录（只落归档文件 + log/）
+
+盘面约定（v1.0.14 起）：
+  · 任务状态（state.json / cancel / 暂存）写「应用运行的主目录」——$TRIM_PKGVAR/.rawarchiver/
+    （fnOS 应用数据目录），不进用户输出目录；
+  · 运行日志与下游报告写「输出目录/log/」；
+  · 源目录只读，任何情况下不产生文件或文件夹。
 """
 import os
 import sys
@@ -28,7 +34,8 @@ except Exception:
     Image = None
 
 APP_NAME = 'RAW 归档'
-APP_DIR  = '.rawarchiver'          # 输出目录下的自包含状态目录
+APP_DIR  = '.rawarchiver'          # 状态目录名（落在应用运行的主目录下，不写用户输出目录）
+LOG_DIR  = 'log'                   # 输出目录下存放运行日志与报告的文件夹
 APP_VER  = '1.0.0'
 
 RAW_EXTS = {'.nef','.nrw','.cr2','.cr3','.crw','.arw','.srf','.sr2','.raf','.orf','.dng','.pef','.rw2'}
@@ -381,19 +388,37 @@ def do_preview(source, opts, limit=500):
             'exiftool': et_available(),
             'sample': rows[:limit]}
 
-# ---- 任务态 ----
+# ---- 任务态 / 日志 路径 ----
+#
+# 状态目录「应用运行的主目录」：
+#   fnOS 包 → $TRIM_PKGVAR/.rawarchiver（fnOS 注入的应用数据目录，如 /vol2/@appdata/rawarchiver）
+#   CLI/本地 → <应用根>/.rawarchiver（应用根 = 本脚本上一级目录）
+# 日志目录：<输出目录>/log/（运行日志 rawarchiver_<taskId>.log + 报告 _report_<taskId>.json）
 
-def task_dir(task_id, output):
-    if output:
-        return os.path.join(output, APP_DIR, 'tasks', task_id)
-    base = Path(__file__).resolve().parent.parent / 'data' / 'rawarchiver' / 'tasks'
-    return str(base / task_id)
+def state_root():
+    var = os.environ.get('TRIM_PKGVAR')
+    if var:
+        return os.path.join(var, APP_DIR)
+    return str(Path(__file__).resolve().parent.parent / APP_DIR)
 
-def load_state(tid, output):
+def task_dir(task_id, output=None):
+    """任务状态目录（output 形参仅为兼容旧调用保留，已不再使用）。"""
+    return os.path.join(state_root(), 'tasks', task_id)
+
+def log_dir(output):
+    return os.path.join(os.path.abspath(output), LOG_DIR)
+
+def log_path(output, task_id):
+    return os.path.join(log_dir(output), 'rawarchiver_%s.log' % task_id)
+
+def report_path(output, task_id):
+    return os.path.join(log_dir(output), '_report_%s.json' % task_id)
+
+def load_state(tid, output=None):
     p = Path(task_dir(tid, output)) / 'state.json'
     return json.loads(p.read_text(encoding='utf-8')) if p.exists() else None
 
-def cancelled(tid, output):
+def cancelled(tid, output=None):
     return (Path(task_dir(tid, output)) / 'cancel').exists()
 
 # ---- 内部暂存 ----
@@ -464,7 +489,7 @@ def do_rollback(output, task_id):
         return {'ok': False, 'error': 'state.json 不存在'}
     st = json.loads(sp.read_text(encoding='utf-8'))
     if st.get('mode') == 'move' and st.get('removable'):
-        return {'ok': False, 'error': '可移动介质已清源，无法回滚，请依靠 _report_*.json 清单'}
+        return {'ok': False, 'error': '可移动介质已清源，无法回滚，请依靠 <输出目录>/log/ 下的 _report_*.json 清单'}
     moved, n = os.path.join(output, '_restored', st.get('id', task_id)), 0
     for it in st.get('done', []):
         if it.get('status') != 'ok':
@@ -633,7 +658,7 @@ def run_task(source, output, opts, task_id):
     return st
 
 def write_report(output, task_id, st):
-    rp = os.path.join(output, '_report_%s.json' % task_id)
+    rp = report_path(output, task_id)
     atomic_write(rp, {
         'app': APP_NAME, 'version': APP_VER,
         'task_id': task_id, 'source': st['source'], 'output': st['output'],

@@ -8,6 +8,11 @@
 
 网关转发请求路径形如 /app/rawarchiver/...，本服务会剥离前缀后映射到 www/ 或 /api。
 所有实际归档逻辑仍在 scripts/raw_archiver.py（只用标准库），本服务只做参数转发与状态读取。
+
+盘面约定（v1.0.14 起）：
+  · 任务状态（state.json / cancel / 暂存）→ 应用运行的主目录 $TRIM_PKGVAR/.rawarchiver/tasks/<tid>/
+  · 运行日志与报告 → <输出目录>/log/（rawarchiver_<tid>.log、_report_<tid>.json）
+  · 源目录只读，任何情况下不产生文件或文件夹
 """
 
 import os
@@ -32,7 +37,21 @@ WWW = os.path.join(APP_DEST, "www")
 APP_VAR = os.environ.get("TRIM_PKGVAR") or "/var/apps/%s/var" % APP_NAME
 SOCK_PATH = os.path.join(APP_DEST, "rawarchiver.sock")
 
-VERSION = "1.0.13"
+# 状态目录 / 日志路径的唯一来源 = 核心脚本，避免两处规则漂移
+sys.path.insert(0, os.path.join(APP_DEST, "scripts"))
+import raw_archiver as core  # noqa: E402
+
+VERSION = "1.0.14"
+
+
+def task_dir(tid):
+    """任务状态目录（应用数据目录下）。"""
+    return core.task_dir(tid)
+
+
+def log_file(out, tid):
+    """运行日志落 <输出目录>/log/rawarchiver_<tid>.log。"""
+    return core.log_path(out, tid)
 
 
 def log(msg):
@@ -186,14 +205,14 @@ def handle_action(b, q):
         tid = b.get("taskId") or "%s_%d" % (time.strftime("%Y%m%d_%H%M%S"), random.randint(1000, 9999))
         args = [src, "--output", out, "--mode", b.get("mode", "copy"),
                 "--task-id", tid, *optargs(b)]
-        logdir = Path(out) / ".rawarchiver" / "tasks" / tid
-        logdir.mkdir(parents=True, exist_ok=True)
-        lf = open(logdir / "run.log", "a", encoding="utf-8")
+        lf_path = log_file(out, tid)
+        Path(lf_path).parent.mkdir(parents=True, exist_ok=True)
+        lf = open(lf_path, "a", encoding="utf-8")
         subprocess.Popen([pybin(), "-X", "utf8", SCRIPT, *[str(a) for a in args]],
                          stdout=lf, stderr=subprocess.STDOUT, cwd=APP_DEST)
         return {"ok": True, "taskId": tid}
     if act == "status":
-        p = Path(out) / ".rawarchiver" / "tasks" / b.get("id", "") / "state.json"
+        p = Path(task_dir(b.get("id", ""))) / "state.json"
         if not p.exists():
             return {"ok": False, "error": "任务不存在"}
         st = json.loads(p.read_text(encoding="utf-8"))
@@ -202,7 +221,7 @@ def handle_action(b, q):
         st.pop("to_delete", None)
         return {"ok": True, "state": st}
     if act == "cancel":
-        d = Path(out) / ".rawarchiver" / "tasks" / b.get("taskId", "")
+        d = Path(task_dir(b.get("taskId", "")))
         if not d.is_dir():
             return {"ok": False, "error": "任务不存在"}
         (d / "cancel").write_text("1", encoding="utf-8")

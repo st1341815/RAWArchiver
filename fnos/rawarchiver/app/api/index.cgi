@@ -25,6 +25,10 @@ APP_DEST = os.path.dirname(os.path.dirname(SELF))          # .../target
 SCRIPT = os.path.join(APP_DEST, "scripts", "raw_archiver.py")
 APP_VAR = os.environ.get("TRIM_PKGVAR") or "/var/apps/%s/var" % APP_NAME
 
+# 状态目录 / 日志路径的唯一来源 = 核心脚本（与 server.py 同一套规则）
+sys.path.insert(0, os.path.join(APP_DEST, "scripts"))
+import raw_archiver as core  # noqa: E402
+
 
 def pybin():
     p = os.path.join(APP_VAR, "python_path")
@@ -143,7 +147,7 @@ def main():
     out = (b.get("output") or "").strip()
 
     if act == "info":
-        emit({"ok": True, "app": "RAW 归档", "version": "1.0.11", "mode": "fnos-cgi",
+        emit({"ok": True, "app": "RAW 归档", "version": "1.0.14", "mode": "fnos-cgi",
               "script": SCRIPT, "python": pybin()})
     elif act == "doctor":
         emit({"ok": True, "result": json.loads(call("--doctor"))})
@@ -171,14 +175,14 @@ def main():
             tid = b.get("taskId") or "%s_%d" % (time.strftime("%Y%m%d_%H%M%S"), random.randint(1000, 9999))
             args = [b["source"], "--output", out, "--mode", b.get("mode", "copy"),
                     "--task-id", tid, *optargs(b)]
-            logdir = Path(out) / ".rawarchiver" / "tasks" / tid
-            logdir.mkdir(parents=True, exist_ok=True)
-            lf = open(logdir / "run.log", "a", encoding="utf-8")
+            lf_path = core.log_path(out, tid)
+            Path(lf_path).parent.mkdir(parents=True, exist_ok=True)
+            lf = open(lf_path, "a", encoding="utf-8")
             subprocess.Popen([pybin(), "-X", "utf8", SCRIPT, *[str(a) for a in args]],
                              stdout=lf, stderr=subprocess.STDOUT, cwd=APP_DEST)
             emit({"ok": True, "taskId": tid})
     elif act == "status":
-        p = Path(out) / ".rawarchiver" / "tasks" / b.get("id", "") / "state.json"
+        p = Path(core.task_dir(b.get("id", ""))) / "state.json"
         if not p.exists():
             emit({"ok": False, "error": "任务不存在"})
         else:
@@ -188,7 +192,7 @@ def main():
             st.pop("to_delete", None)
             emit({"ok": True, "state": st})
     elif act == "cancel":
-        d = Path(out) / ".rawarchiver" / "tasks" / b.get("taskId", "")
+        d = Path(core.task_dir(b.get("taskId", "")))
         if not d.is_dir():
             emit({"ok": False, "error": "任务不存在"})
         else:
