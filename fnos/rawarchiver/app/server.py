@@ -137,15 +137,16 @@ def browse_dirs(path):
 def check_source_readable(src):
     """返回 None 表示可读；否则返回错误文案。
 
-    飞牛外接存储（/vol00，FAT 挂载、权限 000）对应用用户不可读时，
+    飞牛外接存储（/vol00，FAT 挂载、默认只对 root 可见）对应用用户不可读时，
     os.walk 会静默返回空（预览显示 0 个文件）。这里提前给出明确提示。
+    解决办法：飞牛「文件管理 → 设置 → 外接存储权限」设为「所有账户可见」。
     """
     if not src:
         return "源目录必填"
     if not os.path.isdir(src):
         return "源目录不存在: %s" % src
     if not os.access(src, os.R_OK | os.X_OK):
-        return "无法读取源目录（没有访问权限）。外接存储/U盘需先在飞牛文件管理器里复制到内部存储，或授权该目录: %s" % src
+        return "无法读取源目录（没有访问权限）。请到飞牛「文件管理 → 设置 → 外接存储权限」设为「所有账户可见」后重试: %s" % src
     return None
 
 
