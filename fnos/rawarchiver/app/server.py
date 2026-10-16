@@ -134,6 +134,21 @@ def browse_dirs(path):
         return {"ok": False, "error": str(e)}
 
 
+def check_source_readable(src):
+    """返回 None 表示可读；否则返回错误文案。
+
+    飞牛外接存储（/vol00，FAT 挂载、权限 000）对应用用户不可读时，
+    os.walk 会静默返回空（预览显示 0 个文件）。这里提前给出明确提示。
+    """
+    if not src:
+        return "源目录必填"
+    if not os.path.isdir(src):
+        return "源目录不存在: %s" % src
+    if not os.access(src, os.R_OK | os.X_OK):
+        return "无法读取源目录（没有访问权限）。外接存储/U盘需先在飞牛文件管理器里复制到内部存储，或授权该目录: %s" % src
+    return None
+
+
 def handle_action(b, q):
     act = b.get("action") or (q.get("action", [""])[0]) or "info"
     out = (b.get("output") or "").strip()
@@ -154,15 +169,21 @@ def handle_action(b, q):
         Path(p).mkdir(parents=True, exist_ok=True)
         return {"ok": True, "path": p}
     if act == "preview":
-        if not b.get("source"):
-            return {"ok": False, "error": "source 必填"}
+        src = (b.get("source") or "").strip()
+        err = check_source_readable(src)
+        if err:
+            return {"ok": False, "error": err}
         return {"ok": True, "result": json.loads(
-            call(b["source"], "--output", out or ".", "--preview", *optargs(b)))}
+            call(src, "--output", out or ".", "--preview", *optargs(b)))}
     if act == "start":
         if not (b.get("source") and out):
             return {"ok": False, "error": "source 与 output 必填"}
+        src = (b.get("source") or "").strip()
+        err = check_source_readable(src)
+        if err:
+            return {"ok": False, "error": err}
         tid = b.get("taskId") or "%s_%d" % (time.strftime("%Y%m%d_%H%M%S"), random.randint(1000, 9999))
-        args = [b["source"], "--output", out, "--mode", b.get("mode", "copy"),
+        args = [src, "--output", out, "--mode", b.get("mode", "copy"),
                 "--task-id", tid, *optargs(b)]
         logdir = Path(out) / ".rawarchiver" / "tasks" / tid
         logdir.mkdir(parents=True, exist_ok=True)
