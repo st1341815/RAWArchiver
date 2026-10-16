@@ -39,10 +39,10 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 
 <label>源（SD/TF/U盘或本地目录）
   <div class="row" style="margin-top:4px">
-    <select id="srcSel"><option value="">— 请选择已挂载设备 —</option></select>
-    <button type="button" id="refreshSrc">刷新设备</button>
+    <input type="text" id="srcPath" placeholder="/vol00/MassStorageClass/DCIM 或 /vol1/1000/Photos">
+    <button type="button" id="browseSrc">选取文件夹</button>
   </div>
-  <input type="text" id="srcPath" placeholder="或手填路径，如 /volumeUSB1/usbshare">
+  <span id="srcHint" class="hint"></span>
 </label>
 
 <label>输出目录（归档落点，不存在会自动创建）
@@ -96,7 +96,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 
 <div id="dirModal" class="modal" style="display:none">
   <div class="modal-box">
-    <div class="modal-head">选取输出文件夹
+    <div class="modal-head">选取文件夹
       <button type="button" id="dirClose" class="modal-x" title="关闭">×</button>
     </div>
     <div class="row" style="margin-bottom:6px">
@@ -173,13 +173,13 @@ function getSdk() {
 }
 getSdk();
 
-async function pickFolderNative() {
+async function pickFolderNative(title) {
   // 1) 优先：飞牛 JS SDK 系统内部弹窗（微应用环境，非独立浏览器）
   const sdk = await getSdk();
   if (sdk && !sdk.isStandaloneWeb) {
     try {
       const r = await withTimeout(sdk.pickSharedFile({
-        title: '选择输出目录',
+        title: title || '选择目录',
         okText: '选择',
         sidebarGroup: ['myFiles', 'otherShare', 'external', 'remote', 'favorites', 'team'],
         creatable: false,
@@ -241,26 +241,29 @@ const load = () => { try { const o = JSON.parse(localStorage.getItem(LS)||'{}');
   $('srcPath').value = o.src||''; $('outPath').value = o.out||''; if (o.mode) $('optMode').value = o.mode; } catch(e){} };
 load();
 
-const isRemovable = () => /^\/(volumeUSB|mnt\/usb|media|run\/media|Volumes)/.test($('srcPath').value.trim());
+const isRemovable = () => /^\/(volumeUSB|vol00|mnt\/usb|media|run\/media|Volumes)/.test($('srcPath').value.trim());
 const check = () => { const ok = $('srcPath').value.trim() && $('outPath').value.trim() && $('previewBox').dataset.ready === '1';
   $('btnStart').disabled = !ok; };
-$('srcPath').oninput = $('outPath').oninput = () => { save(); check(); $('outHint').textContent=''; };
+$('srcPath').oninput = () => { save(); check(); $('srcHint').textContent=''; };
+$('outPath').oninput = () => { save(); check(); $('outHint').textContent=''; };
 $('optMode').onchange = save;
 
-$('refreshSrc').onclick = async () => {
-  const r = await api('devices');
-  const sel = $('srcSel');
-  sel.innerHTML = '<option value="">— 请选择已挂载设备 —</option>';
-  (r.list||[]).forEach(d => { const o = document.createElement('option');
-    o.value = d.path; o.textContent = (d.label||'未命名卷') + ' (' + d.path + ') ' + d.files + ' 个可归档文件';
-    sel.appendChild(o); });
-  if (!(r.list||[]).length) sel.innerHTML = '<option value="">未发现 /volumeUSB* 设备，可手填路径</option>';
-  sel.onchange = () => { $('srcPath').value = sel.value; save(); check(); };
+$('browseSrc').onclick = async () => {
+  const paths = await pickFolderNative('选择源目录');
+  if (paths !== null) {
+    if (paths.length) {
+      $('srcPath').value = paths[0];
+      $('srcHint').textContent = '已选择：' + paths[0];
+      $('srcHint').style.color = '#080';
+      save(); check();
+    }
+    return;
+  }
+  openDirPicker('src');
 };
-$('refreshSrc').click();
 
 // ---- 输出目录：选取文件夹（服务端目录浏览器）----
-let dirCurrent = '/', dirParent = null;
+let dirCurrent = '/', dirParent = null, dirTarget = 'out';
 async function loadDir(path){
   $('dirMsg').textContent = '';
   const r = await api('browse', {path: path});
@@ -293,14 +296,14 @@ async function loadDir(path){
   }
   return true;
 }
-async function openDirPicker(){
+async function openDirPicker(target){
+  dirTarget = target === 'src' ? 'src' : 'out';
   $('dirModal').style.display = 'flex';
-  $('outHint').textContent = '';
-  const start = $('outPath').value.trim();
+  const start = (dirTarget === 'src' ? $('srcPath').value : $('outPath').value).trim();
   if (!(await loadDir(start || '/'))) await loadDir('/');
 }
 $('browseOut').onclick = async () => {
-  const paths = await pickFolderNative();
+  const paths = await pickFolderNative('选择输出目录');
   if (paths !== null) {                       // 用了飞牛自带选择框
     if (paths.length) {
       $('outPath').value = paths[0];
@@ -310,7 +313,7 @@ $('browseOut').onclick = async () => {
     }
     return;                                   // 空数组 = 用户取消，不再弹自带框
   }
-  openDirPicker();                            // 原生框没选到/被拦 -> 内置目录浏览器兜底
+  openDirPicker('out');                       // 原生框没选到/被拦 -> 内置目录浏览器兜底
 };
 $('dirClose').onclick = $('dirCancel').onclick = () => { $('dirModal').style.display = 'none'; };
 $('dirUp').onclick = () => { if (dirParent) loadDir(dirParent); };
@@ -319,9 +322,15 @@ $('dirGo').onclick = () => loadDir($('dirPath').value.trim() || '/');
 $('dirPath').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); loadDir($('dirPath').value.trim() || '/'); } });
 $('dirModal').onclick = e => { if (e.target === $('dirModal')) $('dirModal').style.display = 'none'; };
 $('dirOk').onclick = () => {
-  $('outPath').value = dirCurrent;
-  $('outHint').textContent = '已选择：' + dirCurrent;
-  $('outHint').style.color = '#080';
+  if (dirTarget === 'src') {
+    $('srcPath').value = dirCurrent;
+    $('srcHint').textContent = '已选择：' + dirCurrent;
+    $('srcHint').style.color = '#080';
+  } else {
+    $('outPath').value = dirCurrent;
+    $('outHint').textContent = '已选择：' + dirCurrent;
+    $('outHint').style.color = '#080';
+  }
   $('dirModal').style.display = 'none';
   save(); check();
 };
