@@ -121,7 +121,8 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 <script type="module">
 // 飞牛统一网关微应用：静态 / API 都走 /app/rawarchiver 前缀。
 // 目录选择优先用飞牛 JS SDK（TrimApp）系统内部弹窗，桥不可用时回落 window.open / 内置目录浏览器。
-import { s as TrimApp } from './assets/fnnas.js';
+// ⚠️ 必须用绝对路径：iframe src 是 /app/rawarchiver（无尾斜杠），相对 ./assets 会被解析成 /app/assets（404）。
+import { s as TrimApp } from '/app/rawarchiver/assets/fnnas.js';
 
 const GATEWAY_PREFIX = '/app/rawarchiver';
 const API = GATEWAY_PREFIX + '/api';
