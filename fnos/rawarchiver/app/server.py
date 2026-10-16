@@ -83,19 +83,27 @@ def optargs(b):
 def list_devices():
     out = []
 
-    def count_jpg(root):
+    # 可归档扩展名（RAW + JPG + 视频），与 raw_archiver.py 的 ALL_EXTS 对齐
+    ARCHIVE_EXTS = {'.jpg', '.jpeg', '.nef', '.nrw', '.cr2', '.cr3', '.crw', '.arw',
+                    '.srf', '.sr2', '.raf', '.orf', '.dng', '.pef', '.rw2',
+                    '.mp4', '.mov', '.mts', '.m2ts', '.avi', '.mkv', '.3gp',
+                    '.mpg', '.mpeg', '.wmv', '.flv', '.m4v', '.ts', '.mod', '.mxf'}
+
+    def count_files(root):
         try:
-            return (sum(1 for _ in Path(root).rglob("*.JPG"))
-                    + sum(1 for _ in Path(root).rglob("*.jpg")))
+            return sum(1 for _ in Path(root).rglob("*")
+                       if _.is_file() and _.suffix.lower() in ARCHIVE_EXTS)
         except Exception:
             return 0
 
-    for pat in ("volumeUSB*/usbshare*", "volumeUSB*/usbshare", "media/*/*",
-                "run/media/*/*", "mnt/usb*"):
+    # 飞牛 fnOS 外接存储挂载在 /vol00/<设备名>（如 /vol00/MassStorageClass）；
+    # 与 DSM 的 /volumeUSB*/usbshare* 不同——后者一并保留以兼容群晖。
+    for pat in ("vol00/*", "volumeUSB*/usbshare*", "volumeUSB*/usbshare",
+                "media/*/*", "run/media/*/*", "mnt/usb*"):
         try:
             for d in sorted(Path("/").glob(pat)):
                 if d.is_dir():
-                    out.append({"path": str(d), "label": d.name, "files": count_jpg(d)})
+                    out.append({"path": str(d), "label": d.name, "files": count_files(d)})
         except Exception:
             pass
     return out
