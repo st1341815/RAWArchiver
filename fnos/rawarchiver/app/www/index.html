@@ -182,15 +182,21 @@ async function pickFolderNative() {
         title: '选择输出目录',
         okText: '选择',
         sidebarGroup: ['myFiles', 'otherShare', 'external', 'remote', 'favorites', 'team'],
-        creatable: false
-      }), 20000);
+        creatable: false,
+        // 宿主对已授权目录默认禁用（disabledPaths: 参数 ?? 已授权列表）；
+        // 显式传空数组覆盖之，否则已选过的文件夹会变灰不可再选。
+        disabledPaths: []
+      }), 180000);
       if (r && r.code === 0) return Array.isArray(r.data) ? r.data : [];
-      // code != 0（如非管理员）→ 回落
-      if (r && r.msg) console.warn('[rawarchiver] pickSharedFile 返回:', r.code, r.msg);
-      return null;
+      // 取消（宿主返回 msg='Cancelled'）：安静结束，不再弹第二个框
+      if (r && /cancel|取消/i.test(r.msg || '')) return [];
+      // 真错误：提示，但同样不弹第二个框
+      if (r && r.msg) alert('目录选择失败：' + r.msg);
+      return [];
     } catch (e) {
       console.warn('[rawarchiver] pickSharedFile 失败/超时:', e && e.message);
-      return null;
+      // 桥已确认可用（原生框能弹出），异常/超时也不回落弹第二个框
+      return [];
     }
   }
   // 2) 回落：独立浏览器或桥不可用 → window.open + auth-callback
