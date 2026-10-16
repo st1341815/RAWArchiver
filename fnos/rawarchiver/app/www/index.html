@@ -141,24 +141,49 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
   : Date.now() + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2));
 
 // 返回所选文件夹路径数组；失败 / 取消 / 弹窗被拦则返回 null（由调用方回落内置目录浏览器）
+const withTimeout = (p, ms) => Promise.race([
+  p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+]);
+
+// 页面加载即初始化 SDK（单例 + 硬超时），把 penpal 握手提前到页面加载（对齐 file.dedupe）
+let _sdk = null, _sdkInit = null;
+function getSdk() {
+  if (!_sdkInit) {
+    _sdkInit = (async () => {
+      try {
+        const s = new TrimApp();
+        await withTimeout(s.ready(), 5000);
+        _sdk = s;
+      } catch (e) {
+        _sdk = null;
+        console.warn('[rawarchiver] SDK 初始化失败/超时:', e && e.message);
+      }
+      return _sdk;
+    })();
+  }
+  return _sdkInit;
+}
+getSdk();
+
 async function pickFolderNative() {
   // 1) 优先：飞牛 JS SDK 系统内部弹窗（微应用环境，非独立浏览器）
-  try {
-    const sdk = new TrimApp();
-    await sdk.ready();
-    if (!sdk.isStandaloneWeb) {
-      const r = await sdk.pickSharedFile({
+  const sdk = await getSdk();
+  if (sdk && !sdk.isStandaloneWeb) {
+    try {
+      const r = await withTimeout(sdk.pickSharedFile({
         title: '选择输出目录',
         okText: '选择',
         sidebarGroup: ['myFiles', 'otherShare', 'external', 'remote', 'favorites', 'team'],
         creatable: false
-      });
+      }), 20000);
       if (r && r.code === 0) return Array.isArray(r.data) ? r.data : [];
       // code != 0（如非管理员）→ 回落
+      if (r && r.msg) console.warn('[rawarchiver] pickSharedFile 返回:', r.code, r.msg);
+      return null;
+    } catch (e) {
+      console.warn('[rawarchiver] pickSharedFile 失败/超时:', e && e.message);
       return null;
     }
-  } catch (e) {
-    // SDK 不可用 / 桥握手失败 → 回落
   }
   // 2) 回落：独立浏览器或桥不可用 → window.open + auth-callback
   return pickFolderViaWindow();

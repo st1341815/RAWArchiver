@@ -210,6 +210,13 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass  # 静默访问日志
 
+    def _log_req(self):
+        uid = self.headers.get("X-Trim-Userid", "-")
+        isadmin = self.headers.get("X-Trim-Isadmin", "-")
+        log("REQ %s %s uid=%s admin=%s ua=%s" % (
+            self.command, self.path, uid, isadmin,
+            self.headers.get("User-Agent", "-")[:60]))
+
     def _strip_prefix(self):
         parsed = urlparse(self.path)
         p = parsed.path
@@ -243,6 +250,7 @@ class Handler(BaseHTTPRequestHandler):
         self._serve_static(p, head_only=True)
 
     def do_GET(self):
+        self._log_req()
         p, q = self._strip_prefix()
         if p == "/api" or p.startswith("/api"):
             qd = parse_qs(q)
@@ -252,6 +260,7 @@ class Handler(BaseHTTPRequestHandler):
         self._serve_static(p)
 
     def do_POST(self):
+        self._log_req()
         p, q = self._strip_prefix()
         if p != "/api" and not p.startswith("/api"):
             self._send_json({"ok": False, "error": "not found"}, 404)
