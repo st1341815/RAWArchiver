@@ -124,6 +124,13 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 // ⚠️ 必须用绝对路径：iframe src 是 /app/rawarchiver（无尾斜杠），相对 ./assets 会被解析成 /app/assets（404）。
 import { s as TrimApp } from '/app/rawarchiver/assets/fnnas.js';
 
+// fnnas SDK（penpal）在握手成功后的清理时序会 reject 一个 undefined（无害噪音），
+// 这里静默它，避免控制台出现 "Uncaught (in promise) undefined"。
+window.addEventListener('unhandledrejection', (ev) => {
+  if (ev.reason === undefined) { ev.preventDefault(); return; }
+  console.warn('[rawarchiver] 未处理的 Promise 拒绝:', ev.reason);
+});
+
 const GATEWAY_PREFIX = '/app/rawarchiver';
 const API = GATEWAY_PREFIX + '/api';
 const LS = 'rawarchiver.state';
