@@ -1,0 +1,42 @@
+{
+  "schema_version": "2",
+  "source_info": {
+    "name": "RAW 归档 应用源",
+    "author": "uncle13",
+    "homepage": "https://github.com/st1341815/RAWArchiver",
+    "description": "RAW 归档（RAWArchiver）飞牛 fnOS 应用源。相机照片/视频按拍摄日期（EXIF）归档到 NAS。"
+  },
+  "apps": {
+    "rawarchiver": {
+      "display_name": "RAW 归档",
+      "desc": "<p>相机照片 / 视频按 <b>拍摄日期（EXIF）</b>整理归档到 NAS，源目录只读、可断点续跑、可清源，并生成机器可消费的报告。</p><p><b>已支持相机品牌</b>：佳能 Canon · 尼康 Nikon · 索尼 Sony · 富士 Fujifilm · 哈苏 Hasselblad · 徕卡 Leica 等；<b>运动相机</b>：大疆 DJI · GoPro 等（品牌表另含奥林巴斯 · 松下 · 宾得/理光 · 适马 · 飞思 · 三星 · Apple · 华为 · 小米）。</p><p><b>支持格式</b>：RAW（NEF · NRW · CR2 · CR3 · CRW · ARW · SRF · SR2 · RAF · ORF · RW2 · DNG · PEF）、JPG / JPEG、视频（MP4 · MOV · MTS · M2TS · AVI · MKV · 3GP · MPG · MPEG · WMV · FLV · M4V · TS · MOD · MXF）。手机拍的 JPG 照片与视频同样可归档；iPhone 默认的 HEIC / HEIF 暂不支持，需先转 JPG。</p><p><b>使用前提</b>：需在「应用中心 → RAW 归档 → 设置 → 授权目录」授权源目录（读）与归档目录（读+写）；读飞牛外接存储（SD/TF/U 盘）需先设「文件管理 → 设置 → 外接存储权限 → 所有账户可见」。</p>",
+      "platform": [
+        "all"
+      ],
+      "categories": [
+        "影音娱乐"
+      ],
+      "icon_url": "https://cdn.jsdelivr.net/gh/st1341815/RAWArchiver@main/fnos/rawarchiver/app/ui/images/icon_256.png",
+      "bug_report_url": "https://github.com/st1341815/RAWArchiver/issues",
+      "maintainer": "uncle13",
+      "maintainer_url": "https://github.com/st1341815",
+      "run_as": "package",
+      "install_type": "",
+      "is_docker": false,
+      "service_port": "",
+      "releases": {
+        "1.0.16": {
+          "changelog": "软件介绍补全：支持格式清单（RAW 13 种 + JPG/JPEG + 15 种视频扩展名）与手机照片说明（手机 JPG 照片/视频可归档，iPhone 默认 HEIC/HEIF 暂不支持）；同步更新应用中心简介与应用内页头。",
+          "updated_at": "2026-10-17T10:30:00+08:00",
+          "packages": {
+            "all": {
+              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v1.0.16/rawarchiver-1.0.16.fpk",
+              "sha256": "00a3c2e0028138e90ae0c7005feb575c880f897db5ac6c5673f052b32f8a10e1",
+              "size": 290924
+            }
+          }
+        }
+      }
+    }
+  }
+}

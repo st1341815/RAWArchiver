@@ -62,6 +62,17 @@ fnos/                 fnOS（飞牛）应用包工程
 6. **推完自检**：远端 `main` 与本机 `HEAD` 是否同一个 commit（同一个 commit 即整棵树逐字节相同）；Release 附件大小与 `fnos/dist/rawarchiver.fpk` 一致；下载一次比 sha256。
 7. 仓库为 **private**，下载需登录仓库 owner 账号。
 
+## 加入 FnDepot 外部源（可自动更新）
+
+仓库根目录的 `fnpack.json` 是按 **FnDepot 外部应用源 V2** 规范编写的源文件，可直接在 FnDepot 客户端里添加：
+
+- **GitHub 仓库模式**：`https://github.com/st1341815/RAWArchiver`
+- **JSON 直链模式**：`https://cdn.jsdelivr.net/gh/st1341815/RAWArchiver@main/fnpack.json`
+
+源里已填好：`appname=rawarchiver`、`platform=all`、`categories=["影音娱乐"]`、`run_as=package`、`install_type=""`、`is_docker=false`，图标走 jsDelivr（国内可达），安装包走该版本 GitHub Release 附件并带 `sha256` + `size`。
+
+**以后发版要同步改 `fnpack.json`**：在 `releases` 下新增 `"<新版本>"` 节点，填该版本 FPK 的 `download_url`、`sha256`、`size`（旧版本条目**保留**——规范要求已发布的「版本 + 架构」文件不可变，不要静默替换同版本包）。
+
 ## 安装与使用（fnOS）
 
 1. 应用中心 → 手动安装 → 选 `fnos/dist/rawarchiver.fpk`。
