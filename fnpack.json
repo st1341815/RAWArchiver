@@ -17,6 +17,11 @@
         "影音娱乐"
       ],
       "icon_url": "https://cdn.jsdelivr.net/gh/st1341815/RAWArchiver@main/fnos/rawarchiver/app/ui/images/icon_256.png",
+      "preview_urls": [
+        "https://cdn.jsdelivr.net/gh/st1341815/RAWArchiver@main/fnos/assets/previews/preview-1-main.png",
+        "https://cdn.jsdelivr.net/gh/st1341815/RAWArchiver@main/fnos/assets/previews/preview-2-result.png",
+        "https://cdn.jsdelivr.net/gh/st1341815/RAWArchiver@main/fnos/assets/previews/preview-3-running.png"
+      ],
       "bug_report_url": "https://github.com/st1341815/RAWArchiver/issues",
       "maintainer": "uncle13",
       "maintainer_url": "https://github.com/st1341815",
