@@ -11,7 +11,7 @@ PKG=rawarchiver
 FN="${1:-/usr/local/bin/fnpack}"
 [ -x "$FN" ] || { echo "找不到 fnpack：$FN" >&2; exit 1; }
 
-echo "[1/3] 可执行权限"
+echo "[1/4] 可执行权限"
 chmod +x "$PKG/cmd/"* \
          "$PKG/app/ui/index.cgi" "$PKG/app/api/index.cgi" \
          "$PKG/app/server.py" \
@@ -19,12 +19,17 @@ chmod +x "$PKG/cmd/"* \
          "$PKG/app/scripts/fetch_exiftool.sh" "$PKG/app/scripts/hooks/post_done.sh" \
          "$PKG/app/vendor/exiftool/exiftool" 2>/dev/null || true
 
-echo "[2/3] 打包"
+echo "[2/4] 打包"
 mkdir -p dist
 rm -f "$PKG.fpk"
 "$FN" build -d "$PKG"
 mv -f "$PKG.fpk" dist/
 
-echo "[3/3] 完成"
+echo "[3/4] 完成"
 ls -la "dist/$PKG.fpk"
 sha256sum "dist/$PKG.fpk"
+
+# 发版规范：GitHub Release 附件必须带版本号（见 ../README.md「发版规范」）
+VER="$(awk '/^version[ \t]*=/{print $3; exit}' "$PKG/manifest")"
+echo "[4/4] Release 附件名（发版时用这个）: rawarchiver-${VER}.fpk"
+echo "      仓库内构建产物路径保持不变  : dist/$PKG.fpk（build.sh / app install-fpk 依赖）"
