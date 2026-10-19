@@ -30,6 +30,17 @@
       "is_docker": false,
       "service_port": "",
       "releases": {
+        "1.0.17": {
+          "changelog": "修复：移动（move）模式在源目录不可删（外接存储只读/应用无删除权限）时，shutil.move 复制成功但删源失败会抛异常，导致「文件已复制到目标、日志却报全部失败」——现归档统一 copy2、归档后统一清源，清源失败仅告警、不再影响归档结果；增强：运行日志逐文件记录「源文件 → 目标文件」映射，并输出成功/失败/跳过总数与完成时间。",
+          "updated_at": "2026-10-19T19:05:00+08:00",
+          "packages": {
+            "all": {
+              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v1.0.17/rawarchiver-1.0.17.fpk",
+              "sha256": "0b2099328aa585f8257ed19385b1f9e9cd28c558e1cb70bdfeb2c6d2d48118ae",
+              "size": 292426
+            }
+          }
+        },
         "1.0.16": {
           "changelog": "软件介绍补全：支持格式清单（RAW 13 种 + JPG/JPEG + 15 种视频扩展名）与手机照片说明（手机 JPG 照片/视频可归档，iPhone 默认 HEIC/HEIF 暂不支持）；同步更新应用中心简介与应用内页头。",
           "updated_at": "2026-10-17T10:30:00+08:00",

@@ -70,11 +70,33 @@ def atomic_write(path, obj):
         os.fsync(f.fileno())
     os.replace(tmp, p)
 
+def _ts():
+    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
 def log_msg(st, msg):
-    st.setdefault('logs', []).append({'t': datetime.now().strftime('%H:%M:%S'), 'msg': msg})
+    st.setdefault('logs', []).append({'t': _ts(), 'msg': msg})
     if len(st['logs']) > 2000:
         st['logs'] = st['logs'][-1500:]
-    print(msg, flush=True)
+    print('[%s] %s' % (_ts(), msg), flush=True)
+
+def log_file(st, level, src, dest=None, msg=None):
+    """逐文件日志：同时写入 state.logs（供 UI）与 stdout（进 <输出目录>/log/ 的日志文件）。
+
+    level='OK' 时 dest 为目标相对路径（记 src -> dst 映射）；
+    其余（FAIL/SKIP）用 msg 记原因。
+    """
+    ts = _ts()
+    entry = {'t': ts, 'status': level.lower(), 'src': src}
+    if level == 'OK' and dest is not None:
+        entry['dst'] = dest
+        line = '%s | %-4s | %s -> %s' % (ts, level, src, dest)
+    else:
+        entry['msg'] = msg or ''
+        line = '%s | %-4s | %s | %s' % (ts, level, src, msg or '')
+    st.setdefault('logs', []).append(entry)
+    if len(st['logs']) > 2000:
+        st['logs'] = st['logs'][-1500:]
+    print(line, flush=True)
 
 # ---- 源类型判定 ----
 
@@ -592,17 +614,17 @@ def run_task(source, output, opts, task_id):
                 st['skipped'] += 1
                 done_key.add(key)
                 st['done'].append({'src': rel, 'size': sz, 'status': 'skip', 'reason': 'no_date'})
-                st['logs'].append({'t': datetime.now().strftime('%H:%M:%S'),
-                                   'status': 'skip', 'src': rel, 'msg': '无拍摄日期，跳过'})
+                log_file(st, 'SKIP', rel, msg='无拍摄日期，跳过')
                 save()
                 continue
             dst, mdst = build_target(rel, dt, opts, reserved, output)
             try:
                 os.makedirs(os.path.dirname(dst), exist_ok=True)
-                if mode == 'move' and not removable and not stage:
-                    shutil.move(fp, dst)
-                else:
-                    shutil.copy2(fp, dst)
+                # 归档统一用 copy2（先落盘成功再谈清源）。move 模式的“删除源文件”交给
+                # 归档完成后的 do_cleanup 统一处理，避免 shutil.move（copy+unlink 耦合）
+                # 在源不可删（如外接存储只读、或应用用户对源目录无删除权限）时抛异常，
+                # 导致“文件已复制到目标、日志却记全部失败”。
+                shutil.copy2(fp, dst)
                 if mdst:
                     os.makedirs(os.path.dirname(mdst), exist_ok=True)
                     shutil.copy2(dst, mdst)
@@ -615,16 +637,16 @@ def run_task(source, output, opts, task_id):
                 st['done'].append(ent)
                 if mode == 'move':
                     st['to_delete'].append({'src': rel, 'size': sz})
-                st['logs'].append({'t': datetime.now().strftime('%H:%M:%S'), 'status': 'ok',
-                                   'src': rel, 'dst': ent['dst'], 'date': ent['date'], 'from': tag})
+                log_file(st, 'OK', rel, dest=ent['dst'])
             except Exception as e:
                 st['failed'] += 1
-                st['logs'].append({'t': datetime.now().strftime('%H:%M:%S'),
-                                   'status': 'fail', 'src': rel, 'msg': str(e)})
+                log_file(st, 'FAIL', rel, msg=str(e))
             save()
 
-        if mode == 'move' and removable and st['to_delete']:
-            log_msg(st, '[清源] 归档成功，开始清空源设备上对应文件 ...')
+        if mode == 'move' and st['to_delete']:
+            # move 模式：归档成功后清空源目录（外接卡或本地目录都处理）。
+            # 清源失败不影响归档结果——文件已安全落盘，只是源文件保留（权限不足时会在此告警）。
+            log_msg(st, '[清源] 归档完成，开始清空源目录上对应文件 ...')
             r = do_cleanup(output, task_id)
             if r.get('ok'):
                 msg = '[清源] 已删除 %d 个文件' % r['deleted']
@@ -632,21 +654,23 @@ def run_task(source, output, opts, task_id):
                     msg += '，%d 个因大小校验未过而保留' % len(r['kept'])
                 log_msg(st, msg)
                 if r['fail']:
-                    log_msg(st, '[清源] 失败: ' + '; '.join(r['fail'][:5]))
+                    log_msg(st, '[清源] 以下 %d 个删除失败（源文件保留，归档已成功）: %s'
+                            % (len(r['fail']), '; '.join(r['fail'][:5])))
             else:
                 log_msg(st, '[清源] 跳过（文件已安全归档）: %s，后续可用 --cleanup 补清' % r.get('error'))
 
         if st['status'] != 'cancelled':
             st['status'] = 'done'
         st['finished_at'] = now()
-        log_msg(st, '完成: 成功 %d / 失败 %d / 跳过 %d' % (st['success'], st['failed'], st['skipped']))
+        fin = datetime.fromtimestamp(st['finished_at']).strftime('%Y-%m-%d %H:%M:%S')
+        log_msg(st, '完成: 成功 %d / 失败 %d / 跳过 %d，完成时间 %s'
+                % (st['success'], st['failed'], st['skipped'], fin))
         save()
         write_report(output, task_id, st)
     except Exception as e:
         st['status'] = 'error'
         st['error'] = str(e)
-        st['logs'].append({'t': datetime.now().strftime('%H:%M:%S'),
-                           'status': 'fail', 'msg': '异常: %s' % e})
+        log_msg(st, '异常: %s' % e)
         st['finished_at'] = now()
         save()
         raise
