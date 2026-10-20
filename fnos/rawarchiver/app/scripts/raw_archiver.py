@@ -46,7 +46,9 @@ ALL_EXTS = RAW_EXTS | JPG_EXTS | VID_EXTS
 DATE_DIR_RE   = re.compile(r'^\d{8}$')
 SKIP_DIRS     = {'@eaDir', APP_DIR, '_inbox', '_exports', '_trash', '_restored',
                  'Thumbs.db', '.DS_Store', 'lost+found'}
-REMOVABLE_PFX = ('/volumeUSB', '/mnt/usb', '/media/', '/run/media/', '/Volumes/', '/mediausb')
+# 飞牛外接存储挂载在 /vol00（如 /vol00/MassStorageClass、/vol00/USB_DISK），
+# 必须算作可移动介质；DSM / 通用 Linux 的路径一并保留。
+REMOVABLE_PFX = ('/vol00', '/volumeUSB', '/mnt/usb', '/media/', '/run/media/', '/Volumes/', '/mediausb')
 
 BRAND_MAP = {
     'NIKON':'Nikon','CANON':'Canon','SONY':'Sony','OLYMPUS':'Olympus','OM DIGITAL SOLUTIONS':'Olympus',
@@ -656,6 +658,12 @@ def run_task(source, output, opts, task_id):
                 if r['fail']:
                     log_msg(st, '[清源] 以下 %d 个删除失败（源文件保留，归档已成功）: %s'
                             % (len(r['fail']), '; '.join(r['fail'][:5])))
+                    detail = ' '.join(r['fail'])
+                    if any(k in detail for k in ('Permission denied', 'Read-only', 'EACCES', 'EROFS')):
+                        log_msg(st, '[清源] 原因：源目录对当前应用用户不可写（外接存储常以只读权限挂载）；'
+                                    '请手动删除源文件，或改用「复制」模式。归档结果不受影响，无需重新归档。')
+                    else:
+                        log_msg(st, '[清源] 请检查源目录写权限，或手动删除源文件；归档结果不受影响。')
             else:
                 log_msg(st, '[清源] 跳过（文件已安全归档）: %s，后续可用 --cleanup 补清' % r.get('error'))
 
