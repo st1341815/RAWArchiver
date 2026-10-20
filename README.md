@@ -1,5 +1,13 @@
 # RAW 归档（RAW Archiver）
 
+> **RAW Archiver** — a self-hosted **photo / video organizer for NAS**. It scans camera cards or folders, reads **EXIF capture dates**, and archives **RAW / JPG / video** into date-based folders (`YYYYMMDD/`, optionally `Brand/YYYYMMDD/`). Built as a **fnOS (飞牛) fnpack app**; the core script also runs as a plain **Python CLI**.
+>
+> - **Search keywords**: photo organizer · RAW workflow · EXIF date sorting · digital asset management (DAM) · NAS photo backup · camera card offload · 飞牛 fnOS 相册整理 · RAW 归档
+> - **Formats**: NEF/NRW/CR2/CR3/CRW/ARW/SRF/SR2/RAF/ORF/RW2/DNG/PEF · JPG/JPEG · MP4/MOV/MTS/M2TS/AVI/MKV/3GP/MPG/MPEG/WMV/FLV/M4V/TS/MOD/MXF
+> - **Brands**: Canon · Nikon · Sony · Fujifilm · Hasselblad · Leica · Olympus · Panasonic · Pentax/Ricoh · Sigma · Phase One · Samsung · Apple · Huawei · Xiaomi · DJI · GoPro
+> - **Safety**: source is **read-only** · photos without EXIF date are **skipped** · resumable · optional source cleanup after verified copy · machine-readable JSON report
+> - **Download**: [Releases](https://github.com/st1341815/RAWArchiver/releases)
+
 相机照片/视频按**拍摄日期（EXIF）**归档到 NAS 的工具。设计准则：**源只读、目标可写、可断点续跑、可清源**。
 照片读不到 EXIF 一律视为未知并**跳过**；视频可用文件时间兜底。支持 RAW（NEF/CR2/ARW…）/ JPG / 视频。
 

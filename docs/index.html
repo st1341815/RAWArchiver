@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RAW 归档 — 相机照片/视频按 EXIF 拍摄日期归档到 NAS</title>
+<meta name="description" content="RAW 归档（RAW Archiver）：按 EXIF 拍摄日期自动把相机 RAW / JPG / 视频整理到 NAS。飞牛 fnOS 应用（fnpack），支持佳能、尼康、索尼、富士等品牌；源目录只读、断点续跑、可清源、生成 JSON 报告。">
+<meta name="keywords" content="RAW 归档, 照片整理, 照片归档, EXIF, 拍摄日期, NAS, 飞牛, fnOS, 相机, 相册, photo organizer, RAW archiver, digital asset management">
+<meta property="og:title" content="RAW 归档 — 按 EXIF 拍摄日期归档相机照片到 NAS">
+<meta property="og:description" content="自托管的相机照片/视频归档工具，支持飞牛 fnOS，按拍摄日期自动整理 RAW / JPG / 视频。">
+<meta property="og:image" content="assets/preview-1-main.png">
+<style>
+:root{
+  --bg:#f7f5f1; --ink:#22262b; --muted:#5b6570; --line:#e3e0d8;
+  --accent:#2f5d50; --accent-ink:#fff; --card:#fff; --soft:#eef3f0;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  line-height:1.7; -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:980px; margin:0 auto; padding:0 22px}
+header{border-bottom:1px solid var(--line); background:rgba(247,245,241,.86); backdrop-filter:blur(8px); position:sticky; top:0; z-index:10}
+.nav{display:flex; align-items:center; justify-content:space-between; height:58px}
+.brand{font-weight:700; letter-spacing:.2px; display:flex; align-items:center; gap:8px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block}
+.nav a{margin-left:18px; color:var(--muted); font-size:14px}
+.nav a:hover{color:var(--accent)}
+.hero{padding:64px 0 40px; text-align:center}
+.hero h1{font-size:clamp(30px,5vw,46px); line-height:1.22; margin:0 0 16px; letter-spacing:-.5px}
+.hero h1 .hl{color:var(--accent)}
+.hero p.lead{font-size:clamp(15px,2.2vw,18px); color:var(--muted); max-width:660px; margin:0 auto 26px}
+.btns{display:flex; gap:12px; justify-content:center; flex-wrap:wrap}
+.btn{display:inline-block; padding:11px 22px; border-radius:9px; font-weight:600; font-size:15px; border:1px solid transparent}
+.btn.primary{background:var(--accent); color:var(--accent-ink)}
+.btn.ghost{border-color:var(--line); background:var(--card); color:var(--ink)}
+.btn:hover{text-decoration:none; opacity:.92}
+.tags{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:26px}
+.tag{font-size:12.5px; color:var(--muted); background:var(--card); border:1px solid var(--line); border-radius:999px; padding:4px 12px}
+section{padding:46px 0}
+h2{font-size:24px; margin:0 0 8px; letter-spacing:-.2px}
+.sub{color:var(--muted); margin:0 0 24px; font-size:14.5px}
+.shots{display:grid; grid-template-columns:1fr; gap:16px}
+.shots img{width:100%; height:auto; display:block; border-radius:12px; border:1px solid var(--line); background:var(--card); box-shadow:0 8px 26px rgba(34,38,43,.06)}
+figcaption{color:var(--muted); font-size:13px; margin-top:8px; text-align:center}
+.grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 18px 16px}
+.card h3{font-size:15.5px; margin:0 0 6px; display:flex; align-items:center; gap:8px}
+.card h3 .ico{width:22px;height:22px;border-radius:6px;background:var(--soft);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:0 0 auto}
+.card p{margin:0; color:var(--muted); font-size:13.5px; line-height:1.65}
+.two{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+table{width:100%; border-collapse:collapse; font-size:13.5px; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden}
+th,td{text-align:left; padding:10px 14px; border-bottom:1px solid var(--line)}
+th{background:var(--soft); color:var(--muted); font-weight:600; font-size:12.5px; width:88px; white-space:nowrap}
+td:last-child, th:last-child{border-bottom:none}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.92em; background:var(--soft); padding:2px 6px; border-radius:5px; color:#245247}
+pre{background:#20242a; color:#e8eef0; padding:16px 18px; border-radius:12px; overflow:auto; font-size:13.5px; line-height:1.6}
+pre code{background:none; color:inherit; padding:0}
+.pills{display:flex; flex-wrap:wrap; gap:7px}
+.pill{font-size:12.5px; background:var(--card); border:1px solid var(--line); border-radius:7px; padding:4px 10px; color:#3b444d}
+.note{color:var(--muted); font-size:13px; margin-top:10px}
+footer{border-top:1px solid var(--line); padding:30px 0 46px; color:var(--muted); font-size:13.5px}
+.foot{display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap}
+.foot a{color:var(--muted); margin-right:16px}
+.foot a:hover{color:var(--accent)}
+@media (max-width:760px){
+  .grid{grid-template-columns:1fr}
+  .two{grid-template-columns:1fr}
+  .hero{padding:44px 0 24px}
+  .nav .links{display:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <div class="brand"><span class="dot"></span>RAW 归档 <span style="font-weight:400;color:var(--muted);font-size:13px">RAW Archiver</span></div>
+    <div class="links">
+      <a href="#features">功能</a>
+      <a href="#formats">格式</a>
+      <a href="#install">安装</a>
+      <a href="https://github.com/st1341815/RAWArchiver">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <h1>相机照片 / 视频<br><span class="hl">按拍摄日期</span>自动归档到 NAS</h1>
+    <p class="lead">
+      读取每张照片的 <b>EXIF 拍摄日期</b>，把 <b>RAW / JPG / 视频</b> 整理进
+      <code>YYYYMMDD/</code> 或 <code>品牌/YYYYMMDD/</code> 目录。飞牛 fnOS 应用（fnpack），
+      源目录只读、可断点续跑、可清源、生成机器可读报告。
+    </p>
+    <div class="btns">
+      <a class="btn primary" href="https://github.com/st1341815/RAWArchiver/releases/latest">下载最新版</a>
+      <a class="btn ghost" href="https://github.com/st1341815/RAWArchiver">查看源码</a>
+    </div>
+    <div class="tags">
+      <span class="tag">飞牛 fnOS</span>
+      <span class="tag">自托管</span>
+      <span class="tag">RAW 归档</span>
+      <span class="tag">EXIF 日期</span>
+      <span class="tag">NAS 相册整理</span>
+      <span class="tag">Python CLI</span>
+    </div>
+  </section>
+
+  <section class="wrap" id="shots">
+    <h2>界面预览</h2>
+    <p class="sub">选择源目录与目标目录 → 预览归档结果 → 一键执行。</p>
+    <div class="shots">
+      <figure style="margin:0"><img src="assets/preview-1-main.png" alt="RAW 归档主界面"><figcaption>主界面：源目录 / 目标目录 / 选项 / 模式</figcaption></figure>
+      <figure style="margin:0"><img src="assets/preview-2-result.png" alt="归档结果预览"><figcaption>执行前预览：每个文件的拍摄日期与目标路径</figcaption></figure>
+      <figure style="margin:0"><img src="assets/preview-3-running.png" alt="归档进行中"><figcaption>执行中：逐个文件记录「源 → 目标」与总数</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="features">
+    <h2>核心特性</h2>
+    <p class="sub">为「从相机卡搬到 NAS」这一件事设计，尽量少做多余的事。</p>
+    <div class="grid">
+      <div class="card"><h3><span class="ico">📅</span>按拍摄日期归档</h3><p>读 EXIF <code>DateTimeOriginal</code>；照片读不到日期直接跳过，绝不猜；视频可用文件时间兜底。</p></div>
+      <div class="card"><h3><span class="ico">🗂</span>可选品牌分层</h3><p>自动识别佳能 / 尼康 / 索尼 / 富士 / 哈苏 / 徕卡等，按 <code>品牌/日期/</code> 分层，未收录机型照常归档。</p></div>
+      <div class="card"><h3><span class="ico">🔒</span>源目录只读</h3><p>扫描过程不在源卡上创建任何文件或文件夹；复制成功后才谈清源。</p></div>
+      <div class="card"><h3><span class="ico">⏯</span>断点续跑</h3><p>任务状态落在应用数据目录，中断后重跑不会重复处理已完成的文件。</p></div>
+      <div class="card"><h3><span class="ico">🧹</span>可清源 / 可回滚</h3><p>复制模式可回滚；移动模式在归档完成后清源，清源失败只告警、不影响归档结果。</p></div>
+      <div class="card"><h3><span class="ico">📄</span>机器可读报告</h3><p>每次任务生成 JSON 报告与逐文件日志，记录「源文件 → 目标文件」、成功/失败数与完成时间。</p></div>
+    </div>
+  </section>
+
+  <section class="wrap" id="formats">
+    <h2>支持的格式与设备</h2>
+    <p class="sub">共 30 个扩展名；品牌表用于可选的「按品牌分层」。</p>
+    <div class="two">
+      <div>
+        <table>
+          <tr><th>RAW</th><td><code>.nef</code> <code>.nrw</code> <code>.cr2</code> <code>.cr3</code> <code>.crw</code> <code>.arw</code> <code>.srf</code> <code>.sr2</code> <code>.raf</code> <code>.orf</code> <code>.rw2</code> <code>.dng</code> <code>.pef</code></td></tr>
+          <tr><th>照片</th><td><code>.jpg</code> <code>.jpeg</code></td></tr>
+          <tr><th>视频</th><td><code>.mp4</code> <code>.mov</code> <code>.mts</code> <code>.m2ts</code> <code>.avi</code> <code>.mkv</code> <code>.3gp</code> <code>.mpg</code> <code>.mpeg</code> <code>.wmv</code> <code>.flv</code> <code>.m4v</code> <code>.ts</code> <code>.mod</code> <code>.mxf</code></td></tr>
+        </table>
+        <p class="note">手机拍的 <b>JPG 照片 / 视频</b>同样可归档；iPhone 默认的 HEIC / HEIF 暂不支持，需转成 JPG。</p>
+      </div>
+      <div>
+        <div class="pills">
+          <span class="pill">Canon 佳能</span><span class="pill">Nikon 尼康</span><span class="pill">Sony 索尼</span>
+          <span class="pill">Fujifilm 富士</span><span class="pill">Hasselblad 哈苏</span><span class="pill">Leica 徕卡</span>
+          <span class="pill">Olympus 奥林巴斯</span><span class="pill">Panasonic 松下</span><span class="pill">Pentax / Ricoh 宾得理光</span>
+          <span class="pill">Sigma 适马</span><span class="pill">Phase One 飞思</span><span class="pill">Samsung 三星</span>
+          <span class="pill">Apple</span><span class="pill">Huawei 华为</span><span class="pill">Xiaomi 小米</span>
+          <span class="pill">DJI 大疆</span><span class="pill">GoPro</span>
+        </div>
+        <p class="note">运动相机与相机品牌都会读 EXIF <code>Make</code> 识别；未收录机型也能按日期归档。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="install">
+    <h2>安装</h2>
+    <p class="sub">飞牛 fnOS 用户在应用中心安装 fpk；也可以直接用 Python 跑核心脚本。</p>
+    <div class="two">
+      <div class="card">
+        <h3>方式一 · 飞牛 fnOS 应用</h3>
+        <p style="margin-bottom:12px">从 Releases 下载 <code>rawarchiver-&lt;版本&gt;.fpk</code>，在「应用中心 → 手动安装」选择该文件；安装后在应用设置里授权源目录（读）与归档目录（读+写）。</p>
+        <a class="btn primary" href="https://github.com/st1341815/RAWArchiver/releases/latest">前往下载</a>
+      </div>
+      <div class="card">
+        <h3>方式二 · Python CLI</h3>
+        <pre><code>python3 raw_archiver.py /path/to/DCIM \
+  --output /vol1/1000/Photos \
+  --mode copy        # copy=留源, move=归档后清源</code></pre>
+        <p class="note">核心脚本仅依赖 Python 标准库；ExifTool 随包，视频日期识别更准。</p>
+      </div>
+    </div>
+    <p class="note" style="margin-top:16px">
+      详细说明见 <a href="https://github.com/st1341815/RAWArchiver#readme">README</a>；
+      遇到问题请到 <a href="https://github.com/st1341815/RAWArchiver/issues">Issues</a> 反馈。
+    </p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div>RAW 归档（RAW Archiver）· 开源 · MIT</div>
+    <div>
+      <a href="https://github.com/st1341815/RAWArchiver">GitHub</a>
+      <a href="https://github.com/st1341815/RAWArchiver/releases">Releases</a>
+      <a href="https://github.com/st1341815/RAWArchiver/issues">Issues</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
