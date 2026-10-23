@@ -87,8 +87,11 @@ def worker_cmd(args):
 def call(*args, timeout=1800):
     env = dict(os.environ)
     env.setdefault("PYTHONIOENCODING", "utf-8")
+    # worker（frozen cli exe）已把 stdout 切到 UTF-8；这里也必须按 utf-8 解码，
+    # text=True 默认走 locale 编码（Windows 常为 cp1252）会解不开中文。
     return subprocess.check_output(
-        worker_cmd(args), text=True, timeout=timeout, env=env, cwd=APP_DEST)
+        worker_cmd(args), text=True, encoding="utf-8", errors="replace",
+        timeout=timeout, env=env, cwd=APP_DEST)
 
 
 def optargs(b):

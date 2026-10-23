@@ -31,6 +31,15 @@ def _looks_like_gui_launch(argv):
 
 
 def run_cli(argv):
+    # Windows 控制台/管道的默认编码常是 cp1252/cp936（frozen 时 PyInstaller 会忽略
+    # PYTHONIOENCODING），core 的 print 含中文（如 --doctor 的 ensure_ascii=False）会
+    # UnicodeEncodeError。这里显式把 stdout/stderr 切到 UTF-8（server 端也按 utf-8 解码）。
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            if stream is not None:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     sys.path.insert(0, os.path.dirname(SCRIPT))
     import raw_archiver
     sys.argv = [SCRIPT] + argv

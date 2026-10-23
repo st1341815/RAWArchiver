@@ -30,12 +30,11 @@ hiddenimports = [
     'exifread',
     'PIL',
     'PIL.Image',
-    # pywebview EdgeChromium 后端（WebView2，Win11 自带）
-    'pywebview',
-    'pywebview.platforms.edgechromium',
-    'pywebview.js',
-    'pywebview.util',
+    # pywebview（安装名 pywebview，import 名 webview）EdgeChromium 后端（WebView2，Win11 自带）
     'webview',
+    'webview.platforms.edgechromium',
+    'webview.js',
+    'webview.util',
 ]
 
 a_gui = Analysis(
