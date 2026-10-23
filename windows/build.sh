@@ -73,35 +73,14 @@ rm -rf build/RawArchiver dist/RawArchiver
 [ -f "dist/RawArchiver/RawArchiver-cli.exe" ] || { echo "打包失败：RawArchiver-cli.exe 不存在"; exit 1; }
 
 echo "== [6/6] CLI 自测（验证 frozen + 动态 import core + ExifTool 链路）=="
-CLI="dist/RawArchiver/RawArchiver-cli.exe"
-DOC="$("$CLI" --doctor)"
-echo "   doctor: $DOC"
-echo "$DOC" | "$PY" -c '
-import json, os, sys
-d = json.load(sys.stdin)
-assert d["exifread"], "exifread 未打进包"
-assert d["pillow"], "Pillow 未打进包"
-p = d.get("exiftool") or ""
-assert p and "exiftool" in p.lower(), "ExifTool 未随包: %s" % p
-# Windows 路径可能是反斜杠且不带 .exe（subprocess 会补 PATHEXT）
-cands = [p, p + ".exe", p.replace("/", "\\") + ".exe"]
-assert any(os.path.exists(c) for c in cands), "ExifTool 文件不存在: %s" % p
-print("    OK: exifread / Pillow / ExifTool 全部可用")
-'
-T="$(mktemp -d)"
-"$PY" -c "from PIL import Image; Image.new('RGB', (8, 6), (200, 120, 40)).save('$T/a.jpg', quality=85)"
-"$CLI" "$T" --output "$T/out" --preview | "$PY" -c '
-import json, sys
-d = json.load(sys.stdin)
-assert d["total"] == 1, "preview 应扫到 1 个文件，实际 %s" % d["total"]
-print("    OK: CLI 转发 + 预览链路正常（1 个文件）")
-'
-rm -rf "$T"
+# 用 Python 脚本做自测：git-bash 的 mktemp 返回 /tmp/...（Windows 原生 Python 不认），
+# 所以临时目录、路径、断言全部交给 python（tempfile）。
+"$PY" tests/cli_selftest.py
 
 ZIP="dist/RawArchiver-windows-x64.zip"
 rm -f "$ZIP"
-(cd dist && zip -q -r "RawArchiver-windows-x64.zip" RawArchiver -x "*/__pycache__/*")
-mv "dist/RawArchiver-windows-x64.zip" "$ZIP"
+# Git for Windows 不带 zip 命令，用 python zipfile 打包（相对路径 RawArchiver/...）
+"$PY" make_zip.py "$ZIP"
 echo ""
 echo "构建完成："
 echo "  · dist/RawArchiver/（RawArchiver.exe + RawArchiver-cli.exe）"
