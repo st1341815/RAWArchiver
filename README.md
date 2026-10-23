@@ -7,6 +7,7 @@
 > - **Brands**: Canon · Nikon · Sony · Fujifilm · Hasselblad · Leica · Olympus · Panasonic · Pentax/Ricoh · Sigma · Phase One · Samsung · Apple · Huawei · Xiaomi · DJI · GoPro
 > - **Safety**: source is **read-only** · photos without EXIF date are **skipped** · resumable · optional source cleanup after verified copy · machine-readable JSON report
 > - **Download**: [Releases](https://github.com/st1341815/RAWArchiver/releases)
+> - **macOS 版**（MacBook / Apple Silicon M 系列）：下载 `RawArchiver-macOS-<版本>-arm64.zip` → 解压 → 把 `RawArchiver.app` 拖进「应用程序」→ **首次打开右键 → 打开**（未做 Apple 公证）。详见 [macos/README.md](macos/README.md)
 
 相机照片/视频按**拍摄日期（EXIF）**归档到 NAS 的工具。设计准则：**源只读、目标可写、可断点续跑、可清源**。
 照片读不到 EXIF 一律视为未知并**跳过**；视频可用文件时间兜底。支持 RAW（NEF/CR2/ARW…）/ JPG / 视频。
@@ -43,7 +44,18 @@ fnos/                 fnOS（飞牛）应用包工程
 ├── dist/rawarchiver.fpk      打包产物
 ├── build.sh                  一键出包（fnpack）
 └── gen_icons.py              生成图标
+
+macos/                macOS 应用工程（Apple Silicon）
+├── app/main_mac.py           应用入口（GUI：pywebview 原生窗口；带参：CLI 转发核心）
+├── app/server_mac.py         本地 API 服务（127.0.0.1 + token，fnos server.py 的平台适配版）
+├── RawArchiver.spec          PyInstaller 配置（arm64 / .app）
+├── make_icns.py              源图 → icns
+├── build.sh                  一键构建（产物 dist/RawArchiver.app + zip）
+└── tests/selftest_server.py  本地全链路自测
 ```
+
+> `macos/app/scripts/`、`macos/app/www/`、`macos/app/vendor/` 是**构建时同步/下载**的副本
+> （来源 `fnos/rawarchiver/app/`），不进 git——核心脚本与前端只有一份真源，三平台零漂移。
 
 ## 构建
 
@@ -51,6 +63,11 @@ fnos/                 fnOS（飞牛）应用包工程
   ```
   cd fnos && bash build.sh          # 产出 fnos/dist/rawarchiver.fpk
   ```
+- **macOS 应用（.app，需在 Apple Silicon Mac 上构建）**
+  ```
+  cd macos && bash build.sh         # 产出 macos/dist/RawArchiver.app + RawArchiver-macOS-<版本>-arm64.zip
+  ```
+  或由 GitHub Actions（`build-macos.yml`，macos-14 arm64 runner）自动构建/发布。
 - **本体：DSM 套件（SPK）/ fnOS 包（FPK）/ 源码包**
   ```
   cd RAWArchiver
@@ -68,7 +85,7 @@ fnos/                 fnOS（飞牛）应用包工程
 4. **Release 正文**：写清本次更新内容；引用附件名时必须带版本号（正文里保留 `fnos/dist/rawarchiver.fpk` 这个仓库内路径的写法，别一起改掉）。
 5. **替换 / 改名已有附件时的安全顺序**：`下载旧附件 → 上传新名 → 回读 sha256 校验一致 → 才删旧名`。不要先删后传，否则中途失败 Release 会没有安装包。
 6. **推完自检**：远端 `main` 与本机 `HEAD` 是否同一个 commit（同一个 commit 即整棵树逐字节相同）；Release 附件大小与 `fnos/dist/rawarchiver.fpk` 一致；下载一次比 sha256。
-7. 仓库为 **private**，下载需登录仓库 owner 账号。
+7. 仓库为 **public**，下载无需登录。
 
 ## 加入 FnDepot 外部源（可自动更新）
 
@@ -103,6 +120,7 @@ fnos/                 fnOS（飞牛）应用包工程
 ## 版本
 
 - 当前 `1.0.18`（**小修**：飞牛外接存储 `/vol00` 正确识别为可移动介质；move 模式清源失败时日志说明原因并给出「手动删除或改用复制模式」的指引）。
+- **同版本新增 macOS 平台**：`RawArchiver.app`（Apple Silicon / M 系列，pywebview 原生窗口 + 同一份核心/前端），Release 附件 `RawArchiver-macOS-1.0.18-arm64.zip`。核心引擎零改动，仅新增平台壳（`macos/`）。
 - `1.0.17`（**修复移动模式误报 + 日志增强**：move 模式源目录不可删时不再「文件已复制却报全部失败」，归档统一 copy2、清源失败仅告警；运行日志逐文件记录源→目标映射并输出成功/失败/跳过总数与完成时间）。
 - `1.0.16`（**软件介绍补全**：已支持相机/运动相机品牌 + 支持格式清单 + 手机照片说明；应用中心 desc、应用内页头、README 三处同步）。
 - `1.0.15`（软件介绍补充「已支持设备」品牌清单）。

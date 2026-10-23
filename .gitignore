@@ -1,3 +1,11 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# macos 构建产物与构建时同步的副本（来源：fnos/rawarchiver/app/）
+macos/.venv/
+macos/build/
+macos/dist/
+macos/app/scripts/
+macos/app/www/
+macos/app/vendor/

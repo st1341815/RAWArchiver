@@ -131,8 +131,8 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 <script type="module">
 // 飞牛统一网关微应用：静态 / API 都走 /app/rawarchiver 前缀。
 // 目录选择优先用飞牛 JS SDK（TrimApp）系统内部弹窗，桥不可用时回落 window.open / 内置目录浏览器。
-// ⚠️ 必须用绝对路径：iframe src 是 /app/rawarchiver（无尾斜杠），相对 ./assets 会被解析成 /app/assets（404）。
-import { s as TrimApp } from '/app/rawarchiver/assets/fnnas.js';
+// macOS 版（PyInstaller + pywebview）复用本页：mode=macos 时改走 pywebview 原生目录选择框。
+// ⚠️ fnnas.js 用动态 import：静态 import 在 macOS（无该资源）会 404 并让整个 module 不执行。
 
 // fnnas SDK（penpal）在握手成功后的清理时序会 reject 一个 undefined（无害噪音），
 // 这里静默它，避免控制台出现 "Uncaught (in promise) undefined"。
@@ -144,11 +144,28 @@ window.addEventListener('unhandledrejection', (ev) => {
 const GATEWAY_PREFIX = '/app/rawarchiver';
 const API = GATEWAY_PREFIX + '/api';
 const LS = 'rawarchiver.state';
+// macOS 版从窗口 URL 携带的 ?t=<token> 做本机 API 鉴权；fnOS 版无此参数，传空即可（网关负责鉴权）。
+const T = new URLSearchParams(location.search).get('t') || '';
 const $ = id => document.getElementById(id);
-const api = (act, body={}) => fetch(API + '?action=' + act, {
+const api = (act, body={}) => fetch(API + '?action=' + act + '&t=' + encodeURIComponent(T), {
   method:'POST', headers:{'Content-Type':'application/json'},
   body: JSON.stringify(Object.assign({action:act}, body))
 }).then(r => r.json()).catch(e => ({ok:false, error:'请求失败: ' + e}));
+
+// ---- 运行模式检测：fnos-gateway / macos / 其他（独立浏览器） ----
+let MODE = null;
+const MODE_READY = (async () => {
+  try { const r = await api('info'); if (r && r.ok) MODE = r.mode || null; } catch(e) {}
+  return MODE;
+})();
+MODE_READY.then(() => {
+  if (MODE !== 'macos') return;
+  // macOS 语境的输入提示
+  $('srcPath').placeholder = '/Volumes/SD卡名/DCIM 或 ~/Pictures/待归档';
+  $('outPath').placeholder = '~/Pictures/归档 或 /Volumes/移动硬盘/归档';
+  const lab = $('optStaging') && $('optStaging').parentElement;
+  if (lab) lab.appendChild(document.createTextNode('（暂存会先拷到启动盘，空间紧张可取消勾选）'));
+});
 
 // ---- 飞牛目录选择框：优先走 JS SDK 系统内部弹窗（微应用环境），回落 window.open 重定向流 ----
 const APP_BASE = GATEWAY_PREFIX;
@@ -164,12 +181,16 @@ const withTimeout = (p, ms) => Promise.race([
 ]);
 
 // 页面加载即初始化 SDK（单例 + 硬超时），把 penpal 握手提前到页面加载（对齐 file.dedupe）
+// fnnas.js 用动态 import（绝对路径）：macOS 打包里没有这个资源，静态 import 404 会让整页脚本失效。
 let _sdk = null, _sdkInit = null;
 function getSdk() {
   if (!_sdkInit) {
     _sdkInit = (async () => {
+      await MODE_READY;
+      if (MODE === 'macos') { _sdk = null; return null; }   // macOS 不走飞牛 SDK
       try {
-        const s = new TrimApp();
+        const mod = await import(APP_BASE + '/assets/fnnas.js');
+        const s = new mod.s();
         await withTimeout(s.ready(), 5000);
         _sdk = s;
       } catch (e) {
@@ -183,7 +204,26 @@ function getSdk() {
 }
 getSdk();
 
+// ---- macOS：pywebview 桥就绪等待 ----
+function pywebviewReady() {
+  if (window.pywebview && window.pywebview.api) return Promise.resolve(true);
+  return new Promise(res => {
+    const t = setTimeout(() => res(false), 2500);
+    window.addEventListener('pywebviewready', () => { clearTimeout(t); res(true); });
+  });
+}
+
 async function pickFolderNative(title) {
+  await MODE_READY;
+  // 0) macOS：pywebview 原生目录选择框（NSOpenPanel）
+  if (MODE === 'macos') {
+    const ready = await pywebviewReady();
+    if (!ready) return null;               // 桥不可用 → 内置目录浏览器兜底
+    try {
+      const p = await window.pywebview.api.pick_folder(title || '选择目录');
+      return (typeof p === 'string' && p) ? [p] : [];   // 取消/空 = 空数组，不再弹第二个框
+    } catch (e) { return []; }
+  }
   // 1) 优先：飞牛 JS SDK 系统内部弹窗（微应用环境，非独立浏览器）
   const sdk = await getSdk();
   if (sdk && !sdk.isStandaloneWeb) {

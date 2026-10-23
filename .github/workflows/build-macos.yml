@@ -1,0 +1,86 @@
+name: build-macos
+
+# RAW 归档 macOS 版构建（Apple Silicon）
+# · push 触发：改动 macos/、前端或核心脚本时自动构建，验证打包链路（产物在 Artifacts）
+# · 手动触发：Run workflow 时填 release_tag（如 macos-v1.0.18），构建成功后自动发布 Release
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'macos/**'
+      - '.github/workflows/build-macos.yml'
+      - 'fnos/rawarchiver/app/www/**'
+      - 'fnos/rawarchiver/app/scripts/**'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: '发布到 Release 的 tag（如 macos-v1.0.18；留空则只上传 Artifacts）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14   # Apple Silicon（M1）runner
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build .app + zip
+        run: bash macos/build.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RawArchiver-macOS
+          path: macos/dist/RawArchiver-macOS-*.zip
+          if-no-files-found: error
+
+      - name: Smoke test（GUI 服务 + API 全链路）
+        run: |
+          set -e
+          BIN="macos/dist/RawArchiver.app/Contents/MacOS/RawArchiver"
+          VAR="$HOME/Library/Application Support/RawArchiver"
+          rm -f "$VAR/gui.url"
+          # 无头环境：pywebview 失败 → 回落浏览器分支，服务照常运行（本步就测这个服务）
+          "$BIN" --gui & GUI_PID=$!
+          for i in $(seq 1 30); do [ -f "$VAR/gui.url" ] && break; sleep 1; done
+          URL="$(cat "$VAR/gui.url")"
+          echo "gui url: $URL"
+          TOKEN="${URL##*t=}"
+          API="http://127.0.0.1${URL#http://127.0.0.1}"
+          API="${API%%\?*}/api"
+          # 1) 静态页
+          curl -sf "$URL" | grep -q "RAW 归档" && echo "static ✓"
+          # 2) info（mode 应为 macos；token 校验生效）
+          curl -sf "$API?action=info&t=$TOKEN" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["ok"] and d["mode"]=="macos", d; print("info/mode=macos ✓")'
+          curl -sf "$API?action=info" >/dev/null 2>&1 && { echo "token 校验失效！"; exit 1; } || echo "token 403 ✓"
+          # 3) 预览全链路（frozen CLI 转发 → core → JSON）
+          T="$(mktemp -d)"
+          python3 -c "from PIL import Image; Image.new('RGB',(8,6),(200,120,40)).save('$T/a.jpg', quality=85)"
+          curl -sf -X POST -H 'Content-Type: application/json' \
+            -d "{\"action\":\"preview\",\"source\":\"$T\",\"output\":\"$T/out\"}" \
+            "$API?action=preview&t=$TOKEN" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["ok"] and d["result"]["total"]==1, d; print("preview ✓")'
+          kill $GUI_PID 2>/dev/null || true
+          rm -rf "$T"
+
+      - name: Release
+        if: ${{ github.event.inputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.inputs.release_tag }}
+        run: |
+          ZIP="$(ls macos/dist/RawArchiver-macOS-*.zip)"
+          if ! gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" \
+              --title "RAW 归档 macOS $TAG" \
+              --notes "macOS（Apple Silicon / M 系列）版本。下载 zip 解压后把 RawArchiver.app 拖进「应用程序」即可使用；首次打开请右键 → 打开（应用未做 Apple 公证）。"
+          fi
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" "$ZIP" --clobber
+          echo "Release $TAG 附件已上传: $(basename "$ZIP")"
