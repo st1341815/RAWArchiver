@@ -88,12 +88,17 @@ print("    OK: CLI 转发 + 预览链路正常（1 个文件）")
 '
 rm -rf "$T"
 
-ZIP="dist/RawArchiver-macOS-${VER}-arm64.zip"
-rm -f "$ZIP"
-ditto -c -k --sequesterRsrc --keepParent "$APP" "$ZIP"
+# ---- .dmg 安装包（双击挂载 → 拖 App 到 Applications）----
+DMG="dist/RawArchiver-macOS-${VER}-arm64.dmg"
+rm -f "$DMG"
+DMG_STAGE="$(mktemp -d)"
+cp -R "$APP" "$DMG_STAGE/"
+ln -s /Applications "$DMG_STAGE/Applications"
+hdiutil create -volname "RAW 归档" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG" >/dev/null
+rm -rf "$DMG_STAGE"
 echo ""
 echo "构建完成："
 echo "  · $APP"
-echo "  · $ZIP ($(du -h "$ZIP" | cut -f1))"
+echo "  · $DMG ($(du -h "$DMG" | cut -f1))"
 echo ""
-echo "[发版用] Release 附件名: $(basename "$ZIP")"
+echo "[发版用] Release 附件名: $(basename "$DMG")"

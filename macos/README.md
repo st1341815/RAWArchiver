@@ -5,8 +5,8 @@
 
 ## 下载使用（普通用户）
 
-1. 到 [Releases](https://github.com/st1341815/RAWArchiver/releases) 下载 `RawArchiver-macOS-<版本>-arm64.zip`
-2. 解压，把 `RawArchiver.app` 拖进「应用程序」（或任意位置双击）
+1. 到 [Releases](https://github.com/st1341815/RAWArchiver/releases) 下载 `RawArchiver-macOS-<版本>-arm64.dmg`
+2. 双击 `.dmg` 挂载 → 把 `RawArchiver.app` 拖进「应用程序」→ 在访达侧栏「推出」该磁盘（`.dmg` 可删除）
 3. **首次打开**：因未做 Apple 开发者公证，直接双击会被 Gatekeeper 拦——
    **右键 RawArchiver.app → 打开 → 再点「打开」**（只需一次，之后可正常双击）
 4. 插入 SD 卡 / U 盘，打开应用 → 「选择源目录」（macOS 系统目录选择框，选 `/Volumes/卡名/DCIM`）
@@ -39,18 +39,19 @@
 
 ```sh
 cd macos
-bash build.sh          # 产物 dist/RawArchiver.app + dist/RawArchiver-macOS-<版本>-arm64.zip
+bash build.sh          # 产物 dist/RawArchiver.app + dist/RawArchiver-macOS-<版本>-arm64.dmg
 ```
 
-build.sh 做的事：同步 fnOS 平台副本的核心/前端 → 下载 ExifTool 13.00 → venv 依赖 →
-icns → PyInstaller（arm64 onedir + .app）→ CLI 自测（doctor/preview）→ ad-hoc 签名 → zip。
+build.sh 做的事：同步 fnOS 平台副本的核心/前端 → 下载 ExifTool → venv 依赖 →
+icns → PyInstaller（arm64 onedir + .app）→ CLI 自测（doctor/preview）→ ad-hoc 签名 →
+.dmg（hdiutil，内含 App + /Applications 快捷方式）。
 
 ## CI 构建（推荐）
 
 GitHub Actions（`.github/workflows/build-macos.yml`）在 `macos-14`（M1）runner 上自动构建：
 
 - push 改动 `macos/`、前端、核心脚本 → 自动构建，产物进 Artifacts
-- 手动 **Run workflow** 并填 `release_tag`（如 `macos-v1.0.18`）→ 构建成功后自动创建/更新对应 Release 并上传 zip 附件
+- 手动 **Run workflow** 并填 `release_tag`（如 `macos-v1.0.18`）→ 构建成功后自动创建/更新对应 Release 并上传 `.dmg` 附件
 
 ## 结构
 

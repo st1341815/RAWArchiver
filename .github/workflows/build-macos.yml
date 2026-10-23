@@ -31,14 +31,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Build .app + zip
+      - name: Build .app + dmg
         run: bash macos/build.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: RawArchiver-macOS
-          path: macos/dist/RawArchiver-macOS-*.zip
+          path: macos/dist/RawArchiver-macOS-*.dmg
           if-no-files-found: error
 
       - name: Smoke test（GUI 服务 + API 全链路）
@@ -78,11 +78,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          ZIP="$(ls macos/dist/RawArchiver-macOS-*.zip)"
+          DMG="$(ls macos/dist/RawArchiver-macOS-*.dmg)"
           if ! gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" \
               --title "RAW 归档 macOS $TAG" \
-              --notes "macOS（Apple Silicon / M 系列）版本。下载 zip 解压后把 RawArchiver.app 拖进「应用程序」即可使用；首次打开请右键 → 打开（应用未做 Apple 公证）。"
+              --notes "macOS（Apple Silicon / M 系列）安装包（.dmg）。双击挂载后，把 RawArchiver.app 拖进「应用程序」即可；首次打开请右键 → 打开（应用未做 Apple 公证）。"
           fi
-          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" "$ZIP" --clobber
-          echo "Release $TAG 附件已上传: $(basename "$ZIP")"
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" "$DMG" --clobber
+          echo "Release $TAG 附件已上传: $(basename "$DMG")"
+          # 清理旧 zip 附件（只保留 .dmg 安装包）
+          for aid in $(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[] | select(.name | endswith(".zip")) | .id' 2>/dev/null); do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$aid" >/dev/null 2>&1 && echo "已删除旧 zip 附件 id=$aid"
+          done
