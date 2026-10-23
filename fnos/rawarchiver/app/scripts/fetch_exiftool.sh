@@ -1,11 +1,14 @@
 #!/bin/sh
 # RAW 归档 —— ExifTool 获取脚本（打包前跑一次，产物进 vendor/exiftool/）
-# 三种来源，按顺序尝试：本机已有 → 官方 tar.bz2 → 直接下 .pl
+# 来源按顺序尝试：本机已有 → SourceForge 官方包（版本取 ver.txt 最新）→ 主站直链
+# 注意：exiftool.org 主站只保留最新版 tar，写死旧版本号会 404。
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DEST="$ROOT/vendor/exiftool"
-VER="${EXIFTOOL_VER:-13.00}"
-URL="https://exiftool.org/Image-ExifTool-${VER}.tar.bz2"
+LATEST="$(curl -fsSL -m 20 https://exiftool.org/ver.txt 2>/dev/null | tr -d '[:space:]' || true)"
+VER="${EXIFTOOL_VER:-${LATEST:-13.59}}"
+SF_URL="https://sourceforge.net/projects/exiftool/files/Image-ExifTool-${VER}.tar.gz/download"
+ORG_URL="https://exiftool.org/Image-ExifTool-${VER}.tar.gz"
 mkdir -p "$DEST"
 
 if [ -f "$DEST/exiftool" ]; then
@@ -32,15 +35,18 @@ if command -v exiftool >/dev/null 2>&1; then
   exit 0
 fi
 
-# 2) 官方源码包
+# 2) 官方包（SourceForge 优先，主站兜底）
 TMP="$(mktemp -d)"
-echo "下载 $URL"
-if command -v curl >/dev/null 2>&1; then curl -fL "$URL" -o "$TMP/et.tar.bz2"
-elif command -v wget >/dev/null 2>&1; then wget -O "$TMP/et.tar.bz2" "$URL"
+echo "下载 ExifTool $VER ..."
+if command -v curl >/dev/null 2>&1; then
+  curl -fsSL -m 300 "$SF_URL" -o "$TMP/et.tar.gz" 2>/dev/null \
+    || curl -fsSL -m 300 "$ORG_URL" -o "$TMP/et.tar.gz"
+elif command -v wget >/dev/null 2>&1; then
+  wget -O "$TMP/et.tar.gz" "$SF_URL" || wget -O "$TMP/et.tar.gz" "$ORG_URL"
 else echo "无 curl/wget，无法下载"; rm -rf "$TMP"; exit 1; fi
 
-tar -xjf "$TMP/et.tar.bz2" -C "$TMP"
-DIR="$(find "$TMP" -maxdepth 1 -type d -name 'Image-ExifTool-*' | head -1)"
+tar -xzf "$TMP/et.tar.gz" -C "$TMP"
+DIR="$(find "$TMP" -maxdepth 1 -mindepth 1 -type d | head -1)"
 [ -n "$DIR" ] || { echo "解压失败"; rm -rf "$TMP"; exit 1; }
 cp -a "$DIR/exiftool" "$DEST/exiftool"
 cp -a "$DIR/lib"      "$DEST/lib"

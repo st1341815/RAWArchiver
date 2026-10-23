@@ -21,16 +21,22 @@ cp "$FOS/www/auth-callback.html"  app/www/auth-callback.html 2>/dev/null || true
 echo "   core: $(wc -c < app/scripts/raw_archiver.py) B；index.html: $(wc -c < app/www/index.html) B"
 
 echo "== [2/6] ExifTool（随包，走系统 perl）=="
-ET_VER="${EXIFTOOL_VER:-13.00}"
 mkdir -p app/vendor/exiftool
 if [ -f app/vendor/exiftool/exiftool ] && [ -d app/vendor/exiftool/lib ]; then
   echo "   已存在 app/vendor/exiftool（跳过）"
 else
+  # exiftool.org 主站只保留最新版 tar（旧版本的 Image-ExifTool-<v>.tar.* 会 404），
+  # 版本号从 ver.txt 动态取；下载三级兜底：SourceForge → 主站 → GitHub api tarball。
+  ET_LATEST="$(curl -fsSL -m 20 https://exiftool.org/ver.txt 2>/dev/null | tr -d '[:space:]' || true)"
+  ET_VER="${EXIFTOOL_VER:-${ET_LATEST:-13.59}}"
+  echo "   下载 ExifTool $ET_VER ..."
   TMP="$(mktemp -d)"
-  curl -fL "https://exiftool.org/Image-ExifTool-${ET_VER}.tar.bz2" -o "$TMP/et.tar.bz2"
-  tar -xjf "$TMP/et.tar.bz2" -C "$TMP"
-  DIR="$(find "$TMP" -maxdepth 1 -type d -name 'Image-ExifTool-*' | head -1)"
-  [ -n "$DIR" ] || { echo "解压失败"; exit 1; }
+  curl -fsSL -m 300 "https://sourceforge.net/projects/exiftool/files/Image-ExifTool-${ET_VER}.tar.gz/download" -o "$TMP/et.tar.gz" 2>/dev/null \
+    || curl -fsSL -m 300 "https://exiftool.org/Image-ExifTool-${ET_VER}.tar.gz" -o "$TMP/et.tar.gz" 2>/dev/null \
+    || curl -fsSL -m 300 "https://api.github.com/repos/exiftool/exiftool/tarball/${ET_VER}" -o "$TMP/et.tar.gz"
+  tar -xzf "$TMP/et.tar.gz" -C "$TMP"
+  DIR="$(find "$TMP" -maxdepth 1 -mindepth 1 -type d | head -1)"
+  [ -n "$DIR" ] && [ -f "$DIR/exiftool" ] || { echo "解压失败：$DIR 下没有 exiftool"; exit 1; }
   cp -a "$DIR/exiftool" app/vendor/exiftool/exiftool
   cp -a "$DIR/lib"      app/vendor/exiftool/lib
   chmod +x app/vendor/exiftool/exiftool
