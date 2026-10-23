@@ -45,7 +45,7 @@ jobs:
           if-no-files-found: error
 
       - name: Smoke test（GUI 服务 + API 全链路）
-        run: .venv/Scripts/python.exe windows/tests/smoke.py
+        run: windows/.venv/Scripts/python.exe windows/tests/smoke.py
 
       - name: Release
         if: ${{ github.event.inputs.release_tag != '' }}
