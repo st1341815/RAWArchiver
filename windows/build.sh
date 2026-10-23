@@ -34,17 +34,23 @@ mkdir -p app/vendor/exiftool
 if [ -f app/vendor/exiftool/exiftool.exe ]; then
   echo "   已存在 app/vendor/exiftool/exiftool.exe（跳过）"
 else
+  # Windows 版只有 SourceForge 一个来源（exiftool.org 直链不含 _64.zip）。
+  # 官方 Windows 包 = exiftool(-k).exe 包装器 + exiftool_files/（perl 运行时 + lib），
+  # 两者都要随包：包装器改名 exiftool.exe（core 找这个名），运行时目录原样带上。
   echo "   下载 ExifTool $ET_VER (Windows) ..."
   TMP="$(mktemp -d)"
-  curl -fsSL -m 300 "https://exiftool.org/exiftool-${ET_VER}_64.zip" -o "$TMP/et.zip" 2>/dev/null \
-    || curl -fsSL -m 300 "https://sourceforge.net/projects/exiftool/files/exiftool-${ET_VER}_64.zip/download" -o "$TMP/et.zip"
+  curl -fsSL -m 300 "https://sourceforge.net/projects/exiftool/files/exiftool-${ET_VER}_64.zip/download" -o "$TMP/et.zip"
   (cd "$TMP" && unzip -o -q et.zip)
-  ETEXE="$(find "$TMP" -maxdepth 1 -iname 'exiftool*.exe' | head -1)"
+  DIR="$(find "$TMP" -maxdepth 1 -mindepth 1 -type d | head -1)"   # exiftool-<ver>_64/
+  ETEXE="$(find "$DIR" -maxdepth 1 -iname 'exiftool*.exe' | head -1)"
   [ -n "$ETEXE" ] || { echo "解压失败：未找到 exiftool*.exe"; exit 1; }
   cp -a "$ETEXE" app/vendor/exiftool/exiftool.exe
+  if [ -d "$DIR/exiftool_files" ]; then
+    cp -a "$DIR/exiftool_files" app/vendor/exiftool/exiftool_files
+  fi
   rm -rf "$TMP"
 fi
-echo "   ExifTool.exe 就位（$(wc -c < app/vendor/exiftool/exiftool.exe) B）"
+echo "   ExifTool.exe 就位（$(wc -c < app/vendor/exiftool/exiftool.exe) B + exiftool_files/）"
 
 echo "== [3/6] 依赖（.venv）=="
 if [ ! -f "$PY" ] || [ "${FORCE_VENV:-0}" = "1" ]; then
