@@ -9,3 +9,11 @@ macos/dist/
 macos/app/scripts/
 macos/app/www/
 macos/app/vendor/
+
+# windows 构建产物与构建时同步的副本（来源：fnos/rawarchiver/app/）
+windows/.venv/
+windows/build/
+windows/dist/
+windows/app/scripts/
+windows/app/www/
+windows/app/vendor/

@@ -105,6 +105,17 @@ def log_file(st, level, src, dest=None, msg=None):
 def is_removable(path):
     if not path:
         return False
+    if sys.platform == 'win32':
+        # Windows：用 GetDriveTypeW 判断盘符类型，DRIVE_REMOVABLE(2) = U 盘/读卡器/移动硬盘
+        try:
+            import ctypes
+            drive = os.path.splitdrive(os.path.abspath(path))[0]
+            if not drive:
+                drive = os.path.abspath(path)[:1]
+            t = ctypes.windll.kernel32.GetDriveTypeW(drive + '\\')
+            return t == 2
+        except Exception:
+            return False
     p = os.path.realpath(os.path.abspath(path))
     if any(p.startswith(x) for x in REMOVABLE_PFX):
         return True

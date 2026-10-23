@@ -159,12 +159,19 @@ const MODE_READY = (async () => {
   return MODE;
 })();
 MODE_READY.then(() => {
-  if (MODE !== 'macos') return;
-  // macOS 语境的输入提示
-  $('srcPath').placeholder = '/Volumes/SD卡名/DCIM 或 ~/Pictures/待归档';
-  $('outPath').placeholder = '~/Pictures/归档 或 /Volumes/移动硬盘/归档';
-  const lab = $('optStaging') && $('optStaging').parentElement;
-  if (lab) lab.appendChild(document.createTextNode('（暂存会先拷到启动盘，空间紧张可取消勾选）'));
+  if (MODE === 'macos') {
+    // macOS 语境的输入提示
+    $('srcPath').placeholder = '/Volumes/SD卡名/DCIM 或 ~/Pictures/待归档';
+    $('outPath').placeholder = '~/Pictures/归档 或 /Volumes/移动硬盘/归档';
+    const lab = $('optStaging') && $('optStaging').parentElement;
+    if (lab) lab.appendChild(document.createTextNode('（暂存会先拷到启动盘，空间紧张可取消勾选）'));
+  } else if (MODE === 'windows') {
+    // Windows 语境的输入提示
+    $('srcPath').placeholder = 'D:\\DCIM 或 C:\\Users\\你\\Pictures';
+    $('outPath').placeholder = 'D:\\归档 或 E:\\归档';
+    const lab = $('optStaging') && $('optStaging').parentElement;
+    if (lab) lab.appendChild(document.createTextNode('（暂存会先拷到系统盘，空间紧张可取消勾选）'));
+  }
 });
 
 // ---- 飞牛目录选择框：优先走 JS SDK 系统内部弹窗（微应用环境），回落 window.open 重定向流 ----
@@ -187,7 +194,7 @@ function getSdk() {
   if (!_sdkInit) {
     _sdkInit = (async () => {
       await MODE_READY;
-      if (MODE === 'macos') { _sdk = null; return null; }   // macOS 不走飞牛 SDK
+      if (MODE === 'macos' || MODE === 'windows') { _sdk = null; return null; }   // macOS/Windows 不走飞牛 SDK
       try {
         const mod = await import(APP_BASE + '/assets/fnnas.js');
         const s = new mod.s();
@@ -215,8 +222,8 @@ function pywebviewReady() {
 
 async function pickFolderNative(title) {
   await MODE_READY;
-  // 0) macOS：pywebview 原生目录选择框（NSOpenPanel）
-  if (MODE === 'macos') {
+  // 0) macOS / Windows：pywebview 原生目录选择框（NSOpenPanel / IFileDialog）
+  if (MODE === 'macos' || MODE === 'windows') {
     const ready = await pywebviewReady();
     if (!ready) return null;               // 桥不可用 → 内置目录浏览器兜底
     try {
@@ -291,7 +298,7 @@ const load = () => { try { const o = JSON.parse(localStorage.getItem(LS)||'{}');
   $('srcPath').value = o.src||''; $('outPath').value = o.out||''; if (o.mode) $('optMode').value = o.mode; } catch(e){} };
 load();
 
-const isRemovable = () => /^\/(volumeUSB|vol00|mnt\/usb|media|run\/media|Volumes)/.test($('srcPath').value.trim());
+const isRemovable = () => /^\/(volumeUSB|vol00|mnt\/usb|media|run\/media|Volumes)|^[A-Za-z]:\\/.test($('srcPath').value.trim());
 const check = () => { const ok = $('srcPath').value.trim() && $('outPath').value.trim() && $('previewBox').dataset.ready === '1';
   $('btnStart').disabled = !ok; };
 $('srcPath').oninput = () => { save(); check(); $('srcHint').textContent=''; };
