@@ -63,7 +63,8 @@ jobs:
           [ "$CODE" = "403" ] && echo "token 403 ✓" || { echo "token 校验异常: HTTP $CODE"; exit 1; }
           # 3) 预览全链路（frozen CLI 转发 → core → JSON）
           T="$(mktemp -d)"
-          python3 -c "from PIL import Image; Image.new('RGB',(8,6),(200,120,40)).save('$T/a.jpg', quality=85)"
+          PYV=macos/.venv/bin/python3   # Pillow 装在 build.sh 的 venv 里，不是系统 python
+          "$PYV" -c "from PIL import Image; Image.new('RGB',(8,6),(200,120,40)).save('$T/a.jpg', quality=85)"
           curl -sf -X POST -H 'Content-Type: application/json' \
             -d "{\"action\":\"preview\",\"source\":\"$T\",\"output\":\"$T/out\"}" \
             "$API?action=preview&t=$TOKEN" \
