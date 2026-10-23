@@ -77,11 +77,15 @@ CLI="dist/RawArchiver/RawArchiver-cli.exe"
 DOC="$("$CLI" --doctor)"
 echo "   doctor: $DOC"
 echo "$DOC" | "$PY" -c '
-import json, sys
+import json, os, sys
 d = json.load(sys.stdin)
 assert d["exifread"], "exifread 未打进包"
 assert d["pillow"], "Pillow 未打进包"
-assert d["exiftool"] and "vendor/exiftool" in d["exiftool"], "ExifTool 未随包: %s" % d["exiftool"]
+p = d.get("exiftool") or ""
+assert p and "exiftool" in p.lower(), "ExifTool 未随包: %s" % p
+# Windows 路径可能是反斜杠且不带 .exe（subprocess 会补 PATHEXT）
+cands = [p, p + ".exe", p.replace("/", "\\") + ".exe"]
+assert any(os.path.exists(c) for c in cands), "ExifTool 文件不存在: %s" % p
 print("    OK: exifread / Pillow / ExifTool 全部可用")
 '
 T="$(mktemp -d)"
