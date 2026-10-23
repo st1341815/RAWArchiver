@@ -7,6 +7,7 @@
 # 产物：dist/RawArchiver/（RawArchiver.exe + RawArchiver-cli.exe + _internal/）
 #      dist/RawArchiver-windows-x64.zip
 set -euo pipefail
+export PYTHONIOENCODING=utf-8   # Windows 控制台默认 GBK，避免 python print 中文/符号编码崩
 cd "$(dirname "$0")"
 ROOT="$(cd .. && pwd)"
 FOS="$ROOT/fnos/rawarchiver/app"

@@ -25,7 +25,7 @@ def main():
     from PIL import Image  # noqa: F401（测试依赖，venv 里有）
 
     if not os.path.isfile(BIN):
-        print("FAIL: 找不到 %s" % BIN)
+        print("FAIL: not found %s" % BIN)
         sys.exit(1)
 
     if os.path.exists(URLFILE):
@@ -40,32 +40,32 @@ def main():
                     url = f.read().strip()
                 break
             time.sleep(1)
-        assert url, "gui.url 未出现（GUI 服务未启动）"
+        assert url, "gui.url not found (GUI server not started)"
         print("gui url: %s" % url)
 
         token = url.split("t=")[1]
         origin = url.split("/app/rawarchiver/")[0]
         api = origin + "/app/rawarchiver/api"
 
-        # 1) 静态页
+        # 1) static
         with urllib.request.urlopen(url, timeout=30) as r:
             html = r.read().decode("utf-8", "replace")
-        assert "RAW 归档" in html, "静态页不含标题"
-        print("static ✓")
+        assert "RAW 归档" in html, "static page missing title"
+        print("static OK")
 
         # 2) info（mode 应为 windows）
         with urllib.request.urlopen(api + "?action=info&t=" + token, timeout=30) as r:
             d = json.loads(r.read().decode("utf-8"))
         assert d.get("ok") and d.get("mode") == "windows", d
-        print("info/mode=windows ✓")
+        print("info/mode=windows OK")
 
         # 3) token 鉴权：无 token 应 403
         try:
             urllib.request.urlopen(api + "?action=info", timeout=30)
-            raise AssertionError("无 token 不应通过")
+            raise AssertionError("no token should be rejected")
         except urllib.error.HTTPError as e:
-            assert e.code == 403, "期望 403，得到 %s" % e.code
-        print("token 403 ✓")
+            assert e.code == 403, "expect 403, got %s" % e.code
+        print("token 403 OK")
 
         # 4) preview（frozen cli worker → core → JSON）
         tmp = tempfile.mkdtemp(prefix="rawin-")
@@ -79,7 +79,7 @@ def main():
         with urllib.request.urlopen(req, timeout=120) as r:
             d = json.loads(r.read().decode("utf-8"))
         assert d.get("ok") and d.get("result", {}).get("total") == 1, d
-        print("preview ✓")
+        print("preview OK")
 
         print("SELFTEST_WINDOWS_OK")
     finally:
