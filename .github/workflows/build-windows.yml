@@ -61,7 +61,8 @@ jobs:
           fi
           gh release upload "$TAG" -R "$GITHUB_REPOSITORY" "$ZIP" --clobber
           echo "Release $TAG 附件已上传: $(basename "$ZIP")"
-          # 清理旧附件（只保留当前平台 zip）
-          for aid in $(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[] | select(.name | endswith(".zip")) | select(.name | startswith("RawArchiver-windows") | not) | .id' 2>/dev/null); do
+          # 清理旧附件：只保留当前文件名的 zip（历史上不带版本号的旧名一并删掉）
+          CUR="$(basename "$ZIP")"
+          for aid in $(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq ".assets[] | select(.name != \"$CUR\") | select(.name | endswith(\".zip\")) | .id" 2>/dev/null); do
             gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$aid" >/dev/null 2>&1 && echo "已删除旧附件 id=$aid"
           done

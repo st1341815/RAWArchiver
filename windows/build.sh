@@ -77,8 +77,8 @@ echo "== [6/6] CLI 自测（验证 frozen + 动态 import core + ExifTool 链路
 # 所以临时目录、路径、断言全部交给 python（tempfile）。
 "$PY" tests/cli_selftest.py
 
-ZIP="dist/RawArchiver-windows-x64.zip"
-rm -f "$ZIP"
+ZIP="dist/RawArchiver-windows-${VER}-x64.zip"
+rm -f "$ZIP" dist/RawArchiver-windows-x64.zip
 # Git for Windows 不带 zip 命令，用 python zipfile 打包（相对路径 RawArchiver/...）
 "$PY" make_zip.py "$ZIP"
 echo ""
