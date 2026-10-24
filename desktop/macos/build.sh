@@ -91,11 +91,16 @@ rm -rf "$T"
 
 echo "== [6/6] dmg =="
 rm -f "dist/RawArchiver-macOS-${VER}-arm64.dmg"
+# 清理可能的残留挂载（CI 偶发 Resource busy）
+hdiutil detach "/Volumes/RAW 归档" >/dev/null 2>&1 || true
 DMG_STAGE="$(mktemp -d)"
 cp -R "$APP" "$DMG_STAGE/"
 ln -s /Applications "$DMG_STAGE/Applications"
-hdiutil create -volname "RAW 归档" -srcfolder "$DMG_STAGE" -ov -format UDZO \
-  "dist/RawArchiver-macOS-${VER}-arm64.dmg" >/dev/null
+TMPDMG="dist/.tmp-$$.dmg"
+rm -f "$TMPDMG"
+hdiutil create -volname "RAW 归档" -srcfolder "$DMG_STAGE" -ov -format UDZO "$TMPDMG" >/dev/null \
+  || { sleep 2; hdiutil detach "/Volumes/RAW 归档" >/dev/null 2>&1 || true; hdiutil create -volname "RAW 归档" -srcfolder "$DMG_STAGE" -ov -format UDZO "$TMPDMG" >/dev/null; }
+mv "$TMPDMG" "dist/RawArchiver-macOS-${VER}-arm64.dmg"
 rm -rf "$DMG_STAGE"
 echo ""
 echo "构建完成："

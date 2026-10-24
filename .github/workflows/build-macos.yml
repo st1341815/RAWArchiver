@@ -46,14 +46,14 @@ jobs:
           APP="desktop/macos/dist/RawArchiver.app"
           INNER="$APP/Contents/Resources/RawArchiver-cli/RawArchiver-cli"
           # 1) .app 结构
-          [ -x "$APP/Contents/MacOS/RawArchiver" ] && echo "swift binary ✓"
-          [ -f "$APP/Contents/Info.plist" ] && echo "Info.plist ✓"
+          [ -x "$APP/Contents/MacOS/RawArchiver" ] && echo "swift binary OK"
+          [ -f "$APP/Contents/Info.plist" ] && echo "Info.plist OK"
           # 2) 内嵌 CLI doctor（exifread/pillow/exiftool）
-          "$INNER" --doctor | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["exifread"] and d["pillow"] and d["exiftool"], d; print("cli doctor ✓")'
+          "$INNER" --doctor | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["exifread"] and d["pillow"] and d["exiftool"], d; print("cli doctor OK")'
           # 3) IPC 全链路：起 --ipc，喂 preview
           T="$(mktemp -d)"
           desktop/macos/.venv/bin/python3 -c "from PIL import Image; Image.new('RGB',(8,6)).save('$T/a.jpg', quality=85)"
-          echo '{"id":1,"cmd":"preview","source":"'$T'","output":"'$T'/out","opts":{}}' | "$INNER" --ipc | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("id")==1 and d["result"]["total"]==1, d; print("ipc preview ✓")'
+          echo '{"id":1,"cmd":"preview","source":"'$T'","output":"'$T'/out","opts":{}}' | "$INNER" --ipc | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("id")==1 and d["result"]["total"]==1, d; print("ipc preview OK")'
           rm -rf "$T"
 
       - name: Release

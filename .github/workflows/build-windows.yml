@@ -52,11 +52,11 @@ jobs:
           set -e
           EXE="desktop/windows/dist/publish/RawArchiver.exe"
           INNER="desktop/windows/dist/publish/RawArchiver-cli/RawArchiver-cli.exe"
-          [ -f "$EXE" ] && echo "wpf exe ✓"
-          "$INNER" --doctor | desktop/windows/.venv/Scripts/python.exe -c 'import json,sys; d=json.load(sys.stdin); assert d["exifread"] and d["pillow"] and d["exiftool"], d; print("cli doctor ✓")'
+          [ -f "$EXE" ] && echo "wpf exe OK"
+          "$INNER" --doctor | desktop/windows/.venv/Scripts/python.exe -c 'import json,sys; d=json.load(sys.stdin); assert d["exifread"] and d["pillow"] and d["exiftool"], d; print("cli doctor OK")'
           T="$(mktemp -d)"
           desktop/windows/.venv/Scripts/python.exe -c "from PIL import Image; Image.new('RGB',(8,6)).save('$T/a.jpg', quality=85)"
-          echo '{"id":1,"cmd":"preview","source":"'$T'","output":"'$T'/out","opts":{}}' | "$INNER" --ipc | desktop/windows/.venv/Scripts/python.exe -c 'import json,sys; d=json.load(sys.stdin); assert d.get("id")==1 and d["result"]["total"]==1, d; print("ipc preview ✓")'
+          echo '{"id":1,"cmd":"preview","source":"'$T'","output":"'$T'/out","opts":{}}' | "$INNER" --ipc | desktop/windows/.venv/Scripts/python.exe -c 'import json,sys; d=json.load(sys.stdin); assert d.get("id")==1 and d["result"]["total"]==1, d; print("ipc preview OK")'
           rm -rf "$T"
 
       - name: Release
