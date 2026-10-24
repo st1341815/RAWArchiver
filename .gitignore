@@ -17,3 +17,20 @@ windows/dist/
 windows/app/scripts/
 windows/app/www/
 windows/app/vendor/
+
+# desktop 原生 GUI（方案 B）：构建产物与同步副本
+desktop/macos/.venv/
+desktop/macos/build/
+desktop/macos/dist/
+desktop/macos/cli-src/
+desktop/macos/.build/
+desktop/macos/.swiftpm/
+desktop/windows/.venv/
+desktop/windows/build/
+desktop/windows/dist/
+desktop/windows/cli-src/
+desktop/windows/RawArchiver/bin/
+desktop/windows/RawArchiver/obj/
+desktop/windows/RawArchiver/icon.ico
+desktop/core-ipc/__pycache__/
+desktop/core-ipc/tests/__pycache__/

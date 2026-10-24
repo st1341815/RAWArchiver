@@ -1,20 +1,19 @@
 name: build-macos
 
-# RAW 归档 macOS 版构建（Apple Silicon）
-# · push 触发：改动 macos/、前端或核心脚本时自动构建，验证打包链路（产物在 Artifacts）
-# · 手动触发：Run workflow 时填 release_tag（如 macos-v1.0.18），构建成功后自动发布 Release
+# RAW 归档 macOS 原生版（SwiftUI）构建（Apple Silicon）
+# · push 触发：改动 desktop/、核心脚本时自动构建，验证打包链路（产物在 Artifacts）
+# · 手动触发：Run workflow 时填 release_tag（如 v1.1.0），构建成功后自动发布 Release
 on:
   push:
     branches: [main]
     paths:
-      - 'macos/**'
+      - 'desktop/**'
       - '.github/workflows/build-macos.yml'
-      - 'fnos/rawarchiver/app/www/**'
       - 'fnos/rawarchiver/app/scripts/**'
   workflow_dispatch:
     inputs:
       release_tag:
-        description: '发布到 Release 的 tag（如 macos-v1.0.18；留空则只上传 Artifacts）'
+        description: '发布到 Release 的 tag（如 v1.1.0；留空则只上传 Artifacts）'
         required: false
         default: ''
 
@@ -31,45 +30,30 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Build .app + dmg
-        run: bash macos/build.sh
+      - name: Build SwiftUI .app + CLI + dmg
+        run: bash desktop/macos/build.sh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: RawArchiver-macOS
-          path: macos/dist/RawArchiver-macOS-*.dmg
+          path: desktop/macos/dist/RawArchiver-macOS-*.dmg
           if-no-files-found: error
 
-      - name: Smoke test（GUI 服务 + API 全链路）
+      - name: Smoke test（.app 结构 + 内嵌 CLI 全链路）
         run: |
           set -e
-          BIN="macos/dist/RawArchiver.app/Contents/MacOS/RawArchiver"
-          VAR="$HOME/Library/Application Support/RawArchiver"
-          rm -f "$VAR/gui.url"
-          # 无头环境：pywebview 失败 → 回落浏览器分支，服务照常运行（本步就测这个服务）
-          "$BIN" --gui & GUI_PID=$!
-          for i in $(seq 1 30); do [ -f "$VAR/gui.url" ] && break; sleep 1; done
-          URL="$(cat "$VAR/gui.url")"
-          echo "gui url: $URL"
-          ORIGIN="${URL%%/app/*}"                       # http://127.0.0.1:<port>
-          TOKEN="${URL##*t=}"
-          API="$ORIGIN/app/rawarchiver/api"
-          # 1) 静态页
-          curl -sf "$URL" | grep -q "RAW 归档" && echo "static ✓"
-          # 2) info（mode 应为 macos；token 校验生效）
-          curl -sf "$API?action=info&t=$TOKEN" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["ok"] and d["mode"]=="macos", d; print("info/mode=macos ✓")'
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' "$API?action=info")
-          [ "$CODE" = "403" ] && echo "token 403 ✓" || { echo "token 校验异常: HTTP $CODE"; exit 1; }
-          # 3) 预览全链路（frozen CLI 转发 → core → JSON）
+          APP="desktop/macos/dist/RawArchiver.app"
+          INNER="$APP/Contents/Resources/RawArchiver-cli/RawArchiver-cli"
+          # 1) .app 结构
+          [ -x "$APP/Contents/MacOS/RawArchiver" ] && echo "swift binary ✓"
+          [ -f "$APP/Contents/Info.plist" ] && echo "Info.plist ✓"
+          # 2) 内嵌 CLI doctor（exifread/pillow/exiftool）
+          "$INNER" --doctor | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["exifread"] and d["pillow"] and d["exiftool"], d; print("cli doctor ✓")'
+          # 3) IPC 全链路：起 --ipc，喂 preview
           T="$(mktemp -d)"
-          PYV=macos/.venv/bin/python3   # Pillow 装在 build.sh 的 venv 里，不是系统 python
-          "$PYV" -c "from PIL import Image; Image.new('RGB',(8,6),(200,120,40)).save('$T/a.jpg', quality=85)"
-          curl -sf -X POST -H 'Content-Type: application/json' \
-            -d "{\"action\":\"preview\",\"source\":\"$T\",\"output\":\"$T/out\"}" \
-            "$API?action=preview&t=$TOKEN" \
-            | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d["ok"] and d["result"]["total"]==1, d; print("preview ✓")'
-          kill $GUI_PID 2>/dev/null || true
+          desktop/macos/.venv/bin/python3 -c "from PIL import Image; Image.new('RGB',(8,6)).save('$T/a.jpg', quality=85)"
+          echo '{"id":1,"cmd":"preview","source":"'$T'","output":"'$T'/out","opts":{}}' | "$INNER" --ipc | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("id")==1 and d["result"]["total"]==1, d; print("ipc preview ✓")'
           rm -rf "$T"
 
       - name: Release
@@ -78,13 +62,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          DMG="$(ls macos/dist/RawArchiver-macOS-*.dmg)"
+          DMG="$(ls desktop/macos/dist/RawArchiver-macOS-*.dmg)"
           if ! gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" \
-              --title "RAW 归档 macOS $TAG" \
-              --notes "macOS（Apple Silicon / M 系列）安装包（.dmg）。双击挂载后，把 RawArchiver.app 拖进「应用程序」即可；首次打开请右键 → 打开（应用未做 Apple 公证）。"
+              --title "RAW 归档 $TAG" \
+              --notes "RAW 归档 $TAG（原生 GUI 版）。macOS 安装包 .dmg：双击挂载后把 RawArchiver.app 拖进「应用程序」，首次打开右键 → 打开（未做 Apple 公证）。"
           fi
           gh release upload "$TAG" -R "$GITHUB_REPOSITORY" "$DMG" --clobber
           echo "Release $TAG 附件已上传: $(basename "$DMG")"
-          # 注意：不要清理 zip 附件——主 Release 里 Windows 版就是 .zip（三平台产物共存：
-          # .fpk=fnOS / .dmg=macOS / .zip=Windows）。此处只做上传，不删任何附件。
