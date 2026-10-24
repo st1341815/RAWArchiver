@@ -9,7 +9,7 @@
 > - **Download**: [Releases](https://github.com/st1341815/RAWArchiver/releases)
 > - **三平台产物统一在版本 Release 里**（如 `v1.1.0`）：`.fpk` = fnOS 应用包 · `.dmg` = macOS 安装包 · `.zip` = Windows 便携包
 > - **macOS 版**（MacBook / Apple Silicon M 系列，**原生 SwiftUI**）：下载 `RawArchiver-macOS-<版本>-arm64.dmg` → 双击挂载 → 把 `RawArchiver.app` 拖进「应用程序」→ **首次打开右键 → 打开**（未做 Apple 公证）
-> - **Windows 版**（Win10/11 x64，**原生 WPF**）：下载 `RawArchiver-windows-<版本>-x64.zip` → 解压双击 `RawArchiver.exe`（免安装便携版）
+> - **Windows 版**（Win10/11 x64，**原生 WPF**）：下载 `RawArchiver-windows-<版本>-x64.exe` → **双击即用**（单文件免安装，无需解压、无需安装 .NET/Python）
 
 相机照片/视频按**拍摄日期（EXIF）**归档到 NAS 的工具。设计准则：**源只读、目标可写、可断点续跑、可清源**。
 照片读不到 EXIF 一律视为未知并**跳过**；视频可用文件时间兜底。支持 RAW（NEF/CR2/ARW…）/ JPG / 视频。
@@ -75,7 +75,7 @@ desktop/              桌面原生 GUI（macOS SwiftUI / Windows WPF，共享 Py
   或由 GitHub Actions（`build-macos.yml`，macos-14 arm64 runner）自动构建/发布。
 - **Windows 原生应用（WPF .exe，Win10/11 x64）**
   ```
-  cd desktop/windows && bash build.sh  # 产出 RawArchiver.exe + RawArchiver-windows-<版本>-x64.zip
+  cd desktop/windows && bash build.sh  # 产出单文件 RawArchiver-windows-<版本>-x64.exe
   ```
   或由 GitHub Actions（`build-windows.yml`，windows-latest runner）自动构建/发布。
 - **本体：DSM 套件（SPK）/ fnOS 包（FPK）/ 源码包**

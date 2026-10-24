@@ -48,9 +48,9 @@ struct ContentView: View {
         HStack {
             Text("RAW 归档").font(.title2).bold()
             if let pr = model.previewResult {
-                Text("v1.1.0").font(.caption).foregroundColor(.secondary)
+                Text("v1.1.1").font(.caption).foregroundColor(.secondary)
             } else {
-                Text("v1.1.0").font(.caption).foregroundColor(.secondary)
+                Text("v1.1.1").font(.caption).foregroundColor(.secondary)
             }
             Spacer()
             Button("关于") { showAbout = true }
@@ -200,7 +200,7 @@ struct ContentView: View {
     private var aboutView: some View {
         VStack(spacing: 8) {
             Text("RAW 归档").font(.title)
-            Text("v1.1.0").foregroundColor(.secondary)
+            Text("v1.1.1").foregroundColor(.secondary)
             Text(model.doctorText).font(.callout).foregroundColor(.secondary).padding(.horizontal)
             Text("数据目录：\(model.varDir)").font(.caption).foregroundColor(.secondary)
             Button("关闭") { showAbout = false }

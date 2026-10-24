@@ -32,8 +32,8 @@
 
 | 平台 | 命令 | 产物 |
 | --- | --- | --- |
-| macOS | `cd desktop/macos && bash build.sh` | `dist/RawArchiver.app` + `RawArchiver-macOS-1.1.0-arm64.dmg` |
-| Windows | `cd desktop/windows && bash build.sh` | `dist/publish/RawArchiver.exe` + `RawArchiver-windows-1.1.0-x64.zip` |
+| macOS | `cd desktop/macos && bash build.sh` | `dist/RawArchiver.app` + `RawArchiver-macOS-1.1.1-arm64.dmg` |
+| Windows | `cd desktop/windows && bash build.sh` | `dist/publish/RawArchiver.exe`（单文件）+ `RawArchiver-windows-1.1.1-x64.exe` |
 
 均由 GitHub Actions（`build-macos.yml` / `build-windows.yml`）自动构建/发布。
 

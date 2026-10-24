@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 ROOT="$(cd ../.. && pwd)"
 FOS="$ROOT/fnos/rawarchiver/app"
-VER="1.1.0"
+VER="1.1.1"
 
 echo "== [1/6] 同步核心 + ExifTool =="
 mkdir -p cli-src/scripts cli-src/vendor/exiftool

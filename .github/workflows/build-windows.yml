@@ -44,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: RawArchiver-windows
-          path: desktop/windows/dist/RawArchiver-windows-*.zip
+          path: desktop/windows/dist/RawArchiver-windows-*.exe
           if-no-files-found: error
 
       - name: Smoke test（exe 结构 + 内嵌 CLI 全链路）
@@ -56,11 +56,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          ZIP="$(ls desktop/windows/dist/RawArchiver-windows-*.zip)"
+          EXE="$(ls desktop/windows/dist/RawArchiver-windows-*.exe)"
           if ! gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" \
               --title "RAW 归档 $TAG" \
-              --notes "RAW 归档 $TAG（原生 GUI 版）。Windows 便携包 .zip：解压后双击 RawArchiver.exe 即可（免安装，杀软若误报选「仍要运行」）。"
+              --notes "RAW 归档 $TAG（原生 GUI 版）。Windows 单文件免安装 exe：双击即用（无需解压、无需安装 .NET/Python）；杀软若误报请选「仍要运行」并加白名单。"
           fi
-          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" "$ZIP" --clobber
-          echo "Release $TAG 附件已上传: $(basename "$ZIP")"
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" "$EXE" --clobber
+          echo "Release $TAG 附件已上传: $(basename "$EXE")"

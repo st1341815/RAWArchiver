@@ -33,7 +33,7 @@ public partial class MainWindow : Window
 
     private async System.Threading.Tasks.Task StartupAsync()
     {
-        var cli = IpcClient.LocateCli();
+        var cli = IpcClient.LocateCli(_varDir);
         if (cli == null)
         {
             StatusText.Text = "未找到核心引擎（RawArchiver-cli.exe）";
@@ -245,7 +245,7 @@ public partial class MainWindow : Window
 
     private void AboutButton_Click(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show($"RAW 归档 v1.1.0\n数据目录：{_varDir}", "关于", MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show($"RAW 归档 v1.1.1\n数据目录：{_varDir}", "关于", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private void SourceBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) => _previewed = false;

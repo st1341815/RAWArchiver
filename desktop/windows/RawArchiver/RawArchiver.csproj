@@ -8,5 +8,19 @@
     <AssemblyName>RawArchiver</AssemblyName>
     <RootNamespace>RawArchiver</RootNamespace>
     <ApplicationIcon>icon.ico</ApplicationIcon>
+    <Version>1.1.1</Version>
+
+    <!-- 单文件免安装：自包含 .NET 运行时 + 压缩 bundle（运行时解压到临时目录） -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <SatelliteResourceLanguages>zh-Hans;en</SatelliteResourceLanguages>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Python 核心 CLI（PyInstaller --onefile）内嵌进 WPF 单文件 exe，运行时释放到缓存目录 -->
+    <EmbeddedResource Include="Assets\RawArchiver-cli.exe" Condition="Exists('Assets\RawArchiver-cli.exe')" />
+  </ItemGroup>
 </Project>

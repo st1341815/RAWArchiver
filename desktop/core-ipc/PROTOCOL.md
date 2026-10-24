@@ -47,7 +47,7 @@
 
 ```
 → {"id":1,"cmd":"doctor"}
-← {"id":1,"ok":true,"result":{"app":"RAW 归档","version":"1.1.0","python":"3.12.10","exifread":true,"pillow":true,"exiftool":".../vendor/exiftool/exiftool","perl":false}}
+← {"id":1,"ok":true,"result":{"app":"RAW 归档","version":"1.1.1","python":"3.12.10","exifread":true,"pillow":true,"exiftool":".../vendor/exiftool/exiftool","perl":false}}
 ```
 
 ### 4.2 preview

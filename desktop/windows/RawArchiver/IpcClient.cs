@@ -21,13 +21,45 @@ public sealed class IpcClient
 
     public bool IsRunning => _process != null && !_process.HasExited;
 
-    public static string? LocateCli()
+    public static string? LocateCli(string varDir)
     {
+        // 1) 环境变量（调试/排障）
         var env = Environment.GetEnvironmentVariable("RA_CLI");
-        if (!string.IsNullOrEmpty(env)) return env;
+        if (!string.IsNullOrEmpty(env) && File.Exists(env)) return env;
+        // 2) 开发态：程序旁的 RawArchiver-cli/（PyInstaller onedir）
         var cli = Path.Combine(AppContext.BaseDirectory, "RawArchiver-cli", "RawArchiver-cli.exe");
         if (File.Exists(cli)) return cli;
-        return null;
+        // 3) 单文件发布：内嵌资源释放到缓存目录
+        return EnsureEmbeddedCli(varDir);
+    }
+
+    /// <summary>把内嵌的 Python CLI（单文件 exe）释放到缓存目录，返回路径。</summary>
+    private static string? EnsureEmbeddedCli(string varDir)
+    {
+        var asm = typeof(IpcClient).Assembly;
+        var name = asm.GetManifestResourceNames()
+            .FirstOrDefault(n => n.EndsWith("RawArchiver-cli.exe", StringComparison.OrdinalIgnoreCase));
+        if (name == null) return null;
+
+        var ver = asm.GetName().Version?.ToString() ?? "0";
+        var dir = Path.Combine(varDir, "cli", ver);
+        var exe = Path.Combine(dir, "RawArchiver-cli.exe");
+        try
+        {
+            if (File.Exists(exe) && new FileInfo(exe).Length > 1024 * 1024) return exe;
+            Directory.CreateDirectory(dir);
+            using var s = asm.GetManifestResourceStream(name);
+            if (s == null) return null;
+            var tmp = exe + ".tmp";
+            using (var f = File.Create(tmp)) s.CopyTo(f);
+            if (File.Exists(exe)) File.Delete(exe);
+            File.Move(tmp, exe);
+            return exe;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public void Launch(string cliPath, string varDir)

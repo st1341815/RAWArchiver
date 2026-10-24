@@ -25,7 +25,7 @@ import time
 FROZEN = bool(getattr(sys, "frozen", False))
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 
 def _find_core():
