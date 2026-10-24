@@ -7,9 +7,9 @@
 > - **Brands**: Canon · Nikon · Sony · Fujifilm · Hasselblad · Leica · Olympus · Panasonic · Pentax/Ricoh · Sigma · Phase One · Samsung · Apple · Huawei · Xiaomi · DJI · GoPro
 > - **Safety**: source is **read-only** · photos without EXIF date are **skipped** · resumable · optional source cleanup after verified copy · machine-readable JSON report
 > - **Download**: [Releases](https://github.com/st1341815/RAWArchiver/releases)
-> - **三平台产物统一在版本 Release 里**（如 `v1.0.18`）：`.fpk` = fnOS 应用包 · `.dmg` = macOS 安装包 · `.zip` = Windows 便携包
-> - **macOS 版**（MacBook / Apple Silicon M 系列）：下载 `RawArchiver-macOS-<版本>-arm64.dmg` → 双击挂载 → 把 `RawArchiver.app` 拖进「应用程序」→ **首次打开右键 → 打开**（未做 Apple 公证）。详见 [macos/README.md](macos/README.md)
-> - **Windows 版**（Win10/11 x64）：下载 `RawArchiver-windows-<版本>-x64.zip` → 解压双击 `RawArchiver.exe`（免安装便携版）。详见 [windows/README.md](windows/README.md)
+> - **三平台产物统一在版本 Release 里**（如 `v1.1.0`）：`.fpk` = fnOS 应用包 · `.dmg` = macOS 安装包 · `.zip` = Windows 便携包
+> - **macOS 版**（MacBook / Apple Silicon M 系列，**原生 SwiftUI**）：下载 `RawArchiver-macOS-<版本>-arm64.dmg` → 双击挂载 → 把 `RawArchiver.app` 拖进「应用程序」→ **首次打开右键 → 打开**（未做 Apple 公证）
+> - **Windows 版**（Win10/11 x64，**原生 WPF**）：下载 `RawArchiver-windows-<版本>-x64.zip` → 解压双击 `RawArchiver.exe`（免安装便携版）
 
 相机照片/视频按**拍摄日期（EXIF）**归档到 NAS 的工具。设计准则：**源只读、目标可写、可断点续跑、可清源**。
 照片读不到 EXIF 一律视为未知并**跳过**；视频可用文件时间兜底。支持 RAW（NEF/CR2/ARW…）/ JPG / 视频。
@@ -47,25 +47,20 @@ fnos/                 fnOS（飞牛）应用包工程
 ├── build.sh                  一键出包（fnpack）
 └── gen_icons.py              生成图标
 
-macos/                macOS 应用工程（Apple Silicon）
-├── app/main_mac.py           应用入口（GUI：pywebview 原生窗口；带参：CLI 转发核心）
-├── app/server_mac.py         本地 API 服务（127.0.0.1 + token，fnos server.py 的平台适配版）
-├── RawArchiver.spec          PyInstaller 配置（arm64 / .app）
-├── make_icns.py              源图 → icns
-├── build.sh                  一键构建（产物 dist/RawArchiver.app + dmg）
-└── tests/selftest_server.py  本地全链路自测
-
-windows/              Windows 应用工程（Win10/11 x64）
-├── app/main_win.py           应用入口（GUI：pywebview EdgeChromium；带参：CLI 转发核心）
-├── app/server_win.py         本地 API 服务（127.0.0.1 + token）
-├── RawArchiver.spec          PyInstaller 配置（onedir + 双 exe：GUI / CLI）
-├── make_icon.py              源图 → .ico
-├── build.sh                  一键构建（产物 dist/RawArchiver/ + zip）
-└── tests/smoke.py            CI smoke test
+desktop/              桌面原生 GUI（macOS SwiftUI / Windows WPF，共享 Python 核心 IPC）
+├── core-ipc/                 Python 核心引擎 IPC 服务（NDJSON；Swift/WPF 通过子进程调用）
+│   ├── ipc_main.py           --ipc 模式（preview/start/cancel/cleanup/rollback/doctor + 进度事件流）
+│   └── PROTOCOL.md           通信契约
+├── macos/                    macOS 原生应用（SwiftUI + SPM）
+│   ├── Sources/RawArchiver/  主界面 / IPC 客户端 / 预览表 / 进度
+│   └── build.sh              swift build + PyInstaller CLI + 组装 .app + dmg
+└── windows/                  Windows 原生应用（WPF + .NET 8）
+    ├── RawArchiver/          MainWindow / IpcClient
+    └── build.sh              dotnet publish + PyInstaller CLI + zip
 ```
 
-> `macos/app/{scripts,www,vendor}`、`windows/app/{scripts,www,vendor}` 是**构建时同步/下载**的副本
-> （来源 `fnos/rawarchiver/app/`），不进 git——核心脚本与前端只有一份真源，四平台零漂移。
+> 核心引擎 `fnos/rawarchiver/app/scripts/raw_archiver.py` 是三平台唯一真源；
+> 桌面 GUI（Swift/WPF）不实现任何归档逻辑，只负责界面 + 通过 IPC 调用 Python 核心。
 
 ## 构建
 
@@ -73,14 +68,14 @@ windows/              Windows 应用工程（Win10/11 x64）
   ```
   cd fnos && bash build.sh          # 产出 fnos/dist/rawarchiver.fpk
   ```
-- **macOS 应用（.app，需在 Apple Silicon Mac 上构建）**
+- **macOS 原生应用（SwiftUI .app，需在 Apple Silicon Mac 上构建）**
   ```
-  cd macos && bash build.sh         # 产出 macos/dist/RawArchiver.app + RawArchiver-macOS-<版本>-arm64.dmg
+  cd desktop/macos && bash build.sh # 产出 desktop/macos/dist/RawArchiver.app + RawArchiver-macOS-<版本>-arm64.dmg
   ```
   或由 GitHub Actions（`build-macos.yml`，macos-14 arm64 runner）自动构建/发布。
-- **Windows 应用（.exe，Win10/11 x64）**
+- **Windows 原生应用（WPF .exe，Win10/11 x64）**
   ```
-  cd windows && bash build.sh       # 产出 windows/dist/RawArchiver/ + RawArchiver-windows-<版本>-x64.zip
+  cd desktop/windows && bash build.sh  # 产出 RawArchiver.exe + RawArchiver-windows-<版本>-x64.zip
   ```
   或由 GitHub Actions（`build-windows.yml`，windows-latest runner）自动构建/发布。
 - **本体：DSM 套件（SPK）/ fnOS 包（FPK）/ 源码包**
@@ -134,7 +129,8 @@ windows/              Windows 应用工程（Win10/11 x64）
 
 ## 版本
 
-- 当前 `1.0.18`（**小修**：飞牛外接存储 `/vol00` 正确识别为可移动介质；move 模式清源失败时日志说明原因并给出「手动删除或改用复制模式」的指引）。
+- 当前 `1.1.0`（**桌面 GUI 重构为原生窗口**：macOS 改用 SwiftUI、Windows 改用 WPF，弃用 pywebview/内嵌 WebView；功能与 1.0.18 等价。核心引擎经新增的 `desktop/core-ipc`（NDJSON）被原生 GUI 调用，`raw_archiver.py` 逻辑不变）。
+- `1.0.18`（**小修**：飞牛外接存储 `/vol00` 正确识别为可移动介质；move 模式清源失败时日志说明原因并给出「手动删除或改用复制模式」的指引）。
 - **同版本新增 macOS 平台**：`RawArchiver.app`（Apple Silicon / M 系列，pywebview 原生窗口 + 同一份核心/前端），Release 附件 `RawArchiver-macOS-1.0.18-arm64.dmg`。核心引擎零改动，仅新增平台壳（`macos/`）。
 - **同版本新增 Windows 平台**：`RawArchiver.exe`（Win10/11 x64，pywebview EdgeChromium 窗口 + 同一份核心/前端），Release 附件 `RawArchiver-windows-1.0.18-x64.zip`；core 的 `is_removable` 增加 Windows 盘符（GetDriveTypeW）识别，纯增量、POSIX 无影响。
 - `1.0.17`（**修复移动模式误报 + 日志增强**：move 模式源目录不可删时不再「文件已复制却报全部失败」，归档统一 copy2、清源失败仅告警；运行日志逐文件记录源→目标映射并输出成功/失败/跳过总数与完成时间）。
