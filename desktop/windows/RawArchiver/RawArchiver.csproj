@@ -20,7 +20,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Python 核心 CLI（PyInstaller --onefile）内嵌进 WPF 单文件 exe，运行时释放到缓存目录 -->
+    <!-- Python 核心 CLI（PyInstaller 单文件）内嵌进 WPF 单文件 exe，运行时释放到缓存目录 -->
     <EmbeddedResource Include="Assets\RawArchiver-cli.exe" Condition="Exists('Assets\RawArchiver-cli.exe')" />
   </ItemGroup>
 </Project>
