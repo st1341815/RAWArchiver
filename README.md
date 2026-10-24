@@ -7,6 +7,7 @@
 > - **Brands**: Canon · Nikon · Sony · Fujifilm · Hasselblad · Leica · Olympus · Panasonic · Pentax/Ricoh · Sigma · Phase One · Samsung · Apple · Huawei · Xiaomi · DJI · GoPro
 > - **Safety**: source is **read-only** · photos without EXIF date are **skipped** · resumable · optional source cleanup after verified copy · machine-readable JSON report
 > - **Download**: [Releases](https://github.com/st1341815/RAWArchiver/releases)
+> - **三平台产物统一在版本 Release 里**（如 `v1.0.18`）：`.fpk` = fnOS 应用包 · `.dmg` = macOS 安装包 · `.zip` = Windows 便携包
 > - **macOS 版**（MacBook / Apple Silicon M 系列）：下载 `RawArchiver-macOS-<版本>-arm64.dmg` → 双击挂载 → 把 `RawArchiver.app` 拖进「应用程序」→ **首次打开右键 → 打开**（未做 Apple 公证）。详见 [macos/README.md](macos/README.md)
 > - **Windows 版**（Win10/11 x64）：下载 `RawArchiver-windows-<版本>-x64.zip` → 解压双击 `RawArchiver.exe`（免安装便携版）。详见 [windows/README.md](windows/README.md)
 

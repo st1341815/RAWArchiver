@@ -86,7 +86,5 @@ jobs:
           fi
           gh release upload "$TAG" -R "$GITHUB_REPOSITORY" "$DMG" --clobber
           echo "Release $TAG 附件已上传: $(basename "$DMG")"
-          # 清理旧 zip 附件（只保留 .dmg 安装包）
-          for aid in $(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.assets[] | select(.name | endswith(".zip")) | .id' 2>/dev/null); do
-            gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$aid" >/dev/null 2>&1 && echo "已删除旧 zip 附件 id=$aid"
-          done
+          # 注意：不要清理 zip 附件——主 Release 里 Windows 版就是 .zip（三平台产物共存：
+          # .fpk=fnOS / .dmg=macOS / .zip=Windows）。此处只做上传，不删任何附件。
