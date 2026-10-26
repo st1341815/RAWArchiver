@@ -159,7 +159,7 @@ def main():
     out = (b.get("output") or "").strip()
 
     if act == "info":
-        emit({"ok": True, "app": "RAW 归档", "version": "1.0.19", "mode": "fnos-cgi",
+        emit({"ok": True, "app": "RAW 归档", "version": "1.0.20", "mode": "fnos-cgi",
               "script": SCRIPT, "python": pybin()})
     elif act == "doctor":
         emit({"ok": True, "result": json.loads(call("--doctor"))})

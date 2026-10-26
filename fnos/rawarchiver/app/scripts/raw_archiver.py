@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-RAW 归档 —— 核心处理脚本 v1.0.19
+RAW 归档 —— 核心处理脚本 v1.0.20
 源：U盘/SD/TF卡（只读，move 模式归档后清源）或本地目录
 输出：用户指定的任意 NAS 目录（只落归档文件 + log/）
 
@@ -36,7 +36,7 @@ except Exception:
 APP_NAME = 'RAW 归档'
 APP_DIR  = '.rawarchiver'          # 状态目录名（落在应用运行的主目录下，不写用户输出目录）
 LOG_DIR  = 'log'                   # 输出目录下存放运行日志与报告的文件夹
-APP_VER  = '1.0.19'
+APP_VER  = '1.0.20'
 
 RAW_EXTS = {'.nef','.nrw','.cr2','.cr3','.crw','.arw','.srf','.sr2','.raf','.orf','.dng','.pef','.rw2'}
 JPG_EXTS = {'.jpg','.jpeg'}
@@ -258,6 +258,100 @@ def _get_make(path):
             pass
     return None
 
+_ET_DATE_TAGS = ['-CreateDate', '-DateTimeOriginal', '-MediaCreateDate',
+                 '-TrackCreateDate', '-FileModifyDate']
+_ET_DATE_KEYS = ('ExifIFD:CreateDate', 'ExifIFD:DateTimeOriginal',
+                 'QuickTime:CreateDate', 'QuickTime:MediaCreateDate', 'System:FileModifyDate')
+
+
+def _et_batch_info(paths, want_make=False, chunk=100):
+    """一次 exiftool 调用解析一批文件 → ({abs_path: {'dt','tag','make'}}, ok)。
+
+    单个 test.exe 进程 vs 每个文件一个 perl 进程：1000 个视频从 ~60s 降到 ~1s。
+    ok=False 表示 exiftool 不可用或调用失败，调用方应回落到逐文件 resolve_date。
+    """
+    info, ok = {}, False
+    binp = _exiftool_bin()
+    if not binp or not paths:
+        return info, False
+    tags = list(_ET_DATE_TAGS) + (['-Make'] if want_make else [])
+    for i in range(0, len(paths), chunk):
+        part = [str(p) for p in paths[i:i + chunk]]
+        try:
+            cmd = _et_run_prefix(binp) + ['-j', '-G1', '-n', '-m'] + tags + part
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            if r.returncode != 0 or not r.stdout.strip():
+                continue
+            ok = True
+            for o in json.loads(r.stdout):
+                fp = o.get('SourceFile')
+                if not fp:
+                    continue
+                dt = tag = None
+                for k in _ET_DATE_KEYS:
+                    v = o.get(k)
+                    if v:
+                        d = _parse_dt(v)
+                        if d:
+                            dt, tag = d, k.split(':')[0].lower()
+                            break
+                mk = None
+                if want_make:
+                    mk = _norm_make(o.get('IFD0:Make') or o.get('ExifIFD:Make')
+                                    or o.get('Make') or '')
+                info[os.path.abspath(fp)] = {'dt': dt, 'tag': tag, 'make': mk}
+        except Exception:
+            continue
+    return info, ok
+
+
+def resolve_dates(paths):
+    """批量解析拍摄时间 → {path: (datetime|None, tag)}。
+
+    视频：一次 exiftool 批量调用（每 100 个一批）；批量拿不到就按「视频用文件时间兜底」处理。
+    图片：逐文件走 exifread / Pillow（纯 Python，单张几毫秒），只有它们都读不到才回落 exiftool。
+    """
+    res = {}
+    vids = [p for p in paths if os.path.splitext(p)[1].lower() in VID_EXTS]
+    info, ok = _et_batch_info(vids) if vids else ({}, False)
+    for p in vids:
+        it = info.get(os.path.abspath(p))
+        if it and it.get('dt'):
+            res[p] = (it['dt'], it['tag'])
+    for p in paths:
+        if p in res:
+            continue
+        if os.path.splitext(p)[1].lower() in VID_EXTS:
+            if ok:
+                # 批量已经代表过 exiftool 的结论，不必再单文件重跑
+                try:
+                    res[p] = (datetime.fromtimestamp(os.path.getmtime(p)), 'file_mtime')
+                except Exception:
+                    res[p] = (None, 'unknown')
+            else:
+                try:
+                    res[p] = resolve_date(p)
+                except Exception:
+                    res[p] = (None, 'unknown')
+        else:
+            try:
+                res[p] = resolve_date(p)
+            except Exception:
+                res[p] = (None, 'unknown')
+    return res
+
+
+def resolve_makes(paths):
+    """批量识别品牌 → {path: brand|None}（「按品牌分层」用）。"""
+    res = {}
+    info, _ok = _et_batch_info(paths, want_make=True)
+    for p in paths:
+        it = info.get(os.path.abspath(p))
+        mk = it.get('make') if it else None
+        res[p] = mk or _get_make(p)
+    return res
+
+
 def resolve_date(path):
     """返回 (datetime|None, tag)。照片取不到 EXIF → (None,'unknown')；视频兜底 file_mtime。"""
     ext = os.path.splitext(path)[1].lower()
@@ -393,37 +487,45 @@ def build_target(rel_src, dt, opts, reserved, output):
 def do_preview(source, opts, limit=500, output=None):
     """扫描源并给出「差异视图」：新增 / 已归档 / 待校验 / 冲突 / 无日期。
 
+    ⚠️ limit 只限制**返回给界面展示的样本条数**，绝不限制统计：total/counts/dup 一律按
+    全部文件算（v1.0.19 之前 limit 会把统计一起截断，导致 500 个以上显示成 500）。
     预览不读源文件内容（避免插卡预览读几百 MB）——需要内容复核的记为 dup_unverified，
     由执行阶段逐个复核。output 缺省时退化为旧行为（按源目录推算目标名，仅供展示）。
     """
     source = os.path.abspath(source)
     out = os.path.abspath(output) if output else source
-    rows, maker_cache = [], {}
+    items = list(scan_images(source, opts))
+    dates = resolve_dates(items)
+    maker_cache = {}
+    if opts.get('brand_folder') and items:
+        makes = resolve_makes(items)
+        maker_cache = {os.path.relpath(p, source): makes.get(p) for p in items}
+        opts['_maker_cache'] = maker_cache
+
+    rows = []
     by_type, bad_count, conflicts = defaultdict(int), 0, 0
     counts = {'new': 0, 'dup': 0, 'dup_unverified': 0, 'missing': 0,
               'conflict': 0, 'nodate': 0}
     dup_keys, dup_bytes, sample_dups = [], 0, []
     last_archived = ''
     reserved = set()
-    total_size = 0
+    total_size, total_count = 0, 0
     conn = ensure_ledger(out)
     try:
-        for fp in scan_images(source, opts):
+        for fp in items:
             try:
                 sz = os.path.getsize(fp)
                 mt = int(os.path.getmtime(fp))
             except Exception:
                 continue
             total_size += sz
+            total_count += 1
             ext = os.path.splitext(fp)[1].lower()
             by_type[ext] += 1
             rel = os.path.relpath(fp, source)
-            dt, tag = resolve_date(fp)
+            dt, tag = dates.get(fp) or (None, 'unknown')
             if tag in ('file_mtime', 'unknown'):
                 bad_count += 1
-            if opts.get('brand_folder'):
-                maker_cache[rel] = _get_make(fp)
-            opts['_maker_cache'] = maker_cache
 
             clean_dst = clean_target(rel, dt, opts, out)
             if ext in (RAW_EXTS | JPG_EXTS) and tag == 'unknown':
@@ -446,6 +548,8 @@ def do_preview(source, opts, limit=500, output=None):
             if verdict == 'conflict':
                 conflicts += 1
 
+            if limit and len(rows) >= limit:
+                continue          # 样本够了，但统计照算
             dst, _md = build_target(rel, dt, opts, reserved, out)
             rows.append({'src': rel, 'size': sz,
                          'date': dt.strftime('%Y-%m-%d') if dt else None,
@@ -454,18 +558,16 @@ def do_preview(source, opts, limit=500, output=None):
                          'bad': tag in ('file_mtime', 'unknown'),
                          'verdict': verdict,
                          'skip': (ext in (RAW_EXTS | JPG_EXTS) and tag == 'unknown')})
-            if limit and len(rows) >= limit:
-                break
         vk = volume_key(source)
         vol = volume_seen(conn, vk)
     finally:
         conn.close()
 
-    dates = sorted({r['date'] for r in rows if r['date']})
+    all_dates = sorted({d.strftime('%Y-%m-%d') for (d, _t) in dates.values() if d})
     guard = make_guard(source, out, opts, dup_keys) if dup_keys else ''
     return {'source': source, 'output': out, 'removable': is_removable(source),
-            'total': len(rows), 'size': total_size, 'by_type': dict(by_type),
-            'date_range': [dates[0], dates[-1]] if dates else [None, None],
+            'total': total_count, 'size': total_size, 'by_type': dict(by_type),
+            'date_range': [all_dates[0], all_dates[-1]] if all_dates else [None, None],
             'bad_count': bad_count, 'conflicts': conflicts,
             'counts': counts,
             'dup': {'count': counts['dup'] + counts['dup_unverified'],
@@ -473,9 +575,11 @@ def do_preview(source, opts, limit=500, output=None):
                     'missing': counts['missing'], 'bytes': dup_bytes,
                     'last_at': last_archived, 'sample': sample_dups},
             'volume': vol, 'dup_guard': guard,
-            'raw_skip_hint': sum(1 for r in rows if r['skip']),
+            'raw_skip_hint': counts['nodate'],
             'removable_note': 'move 模式归档成功后将清空源设备' if is_removable(source) else '',
             'exiftool': et_available(),
+            'sample_shown': len(rows),
+            'sample_limited': bool(limit and total_count > len(rows)),
             'sample': rows[:limit]}
 
 # ---- 任务态 / 日志 路径 ----
@@ -1077,11 +1181,14 @@ def run_task(source, output, opts, task_id):
         save()
         log_msg(st, '待处理 %d 个文件' % len(items))
 
+        # 批量读取拍摄日期：视频走一次 exiftool（每 100 个一批），图片逐文件（exifread 很快）
+        log_msg(st, '正在读取拍摄日期（%d 个文件，视频批量解析）...' % len(items))
+        dates = resolve_dates(items)
         maker_cache = {}
         if opts.get('brand_folder'):
             log_msg(st, '正在识别品牌（仅本次）...')
-            for fp in items:
-                maker_cache[os.path.relpath(fp, src)] = _get_make(fp)
+            makes = resolve_makes(items)
+            maker_cache = {os.path.relpath(p, src): makes.get(p) for p in items}
         opts['_maker_cache'] = maker_cache
 
         mode_dup = opts.get('dup_policy') or 'skip'
@@ -1114,7 +1221,7 @@ def run_task(source, output, opts, task_id):
                 if key in done_key:
                     st['skipped'] += 1
                     continue
-                dt, tag = resolve_date(fp)
+                dt, tag = dates.get(fp) or (None, 'unknown')
                 if dt is None:
                     st['skipped'] += 1
                     st['skipped_nodate'] += 1

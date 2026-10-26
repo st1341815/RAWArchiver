@@ -56,6 +56,9 @@ def req(payload, timeout=60):
 def main():
     os.makedirs(RES, exist_ok=True)
     mark("R0_boot")
+    # 任务 ID 必须每次唯一：复用旧 ID 会「续跑」到上次的 state（done_key 全部命中 → 什么都不做）
+    RUN = time.strftime("%H%M%S")
+    T = {"a": "DGC1_" + RUN, "b": "DGC2_" + RUN, "big": "DGB1_" + RUN}
     # 造 2 个假 MP4（视频走 mtime 兜底，不依赖 EXIF）
     shutil.rmtree(SRC, ignore_errors=True)
     shutil.rmtree(OUT, ignore_errors=True)
@@ -82,12 +85,12 @@ def main():
                                          c.get("conflict")))
 
     # 3 归档（skip 策略）
-    r = req({"action": "start", "source": HSRC, "output": HOUT, "taskId": "DGC1"})
+    r = req({"action": "start", "source": HSRC, "output": HOUT, "taskId": T["a"]})
     mark("R3_start_%s_%s" % (r.get("ok"), r.get("dupPolicy")))
     st = {}
     for _ in range(40):
         time.sleep(1)
-        q = req({"action": "status", "id": "DGC1"})
+        q = req({"action": "status", "id": T["a"]})
         st = q.get("state") or {}
         if st.get("status") in ("done", "error", "cancelled"):
             break
@@ -107,12 +110,12 @@ def main():
 
     # 7 force 带凭据 → 允许重处理
     r = req({"action": "start", "source": HSRC, "output": HOUT,
-             "dupPolicy": "force", "dupGuard": guard, "taskId": "DGC2"})
+             "dupPolicy": "force", "dupGuard": guard, "taskId": T["b"]})
     mark("R7_force_ok_%s" % r.get("ok"))
     st = {}
     for _ in range(40):
         time.sleep(1)
-        q = req({"action": "status", "id": "DGC2"})
+        q = req({"action": "status", "id": T["b"]})
         st = q.get("state") or {}
         if st.get("status") in ("done", "error", "cancelled"):
             break
@@ -122,6 +125,38 @@ def main():
     n1 = sum(1 for _, _, fns in os.walk(OUT) for f in fns if "_1" in f)
     nall = sum(1 for _, _, fns in os.walk(OUT) for f in fns if f.lower().endswith(".mp4"))
     mark("R9_copies_%d_of_%d" % (n1, nall))
+
+    # 10~12 大目录：620 个文件，验证统计不被 500 截断
+    big = os.path.join(BASE, "big")
+    shutil.rmtree(big, ignore_errors=True)
+    os.makedirs(big, exist_ok=True)
+    for i in range(620):
+        p = os.path.join(big, "B_%04d.MP4" % i)
+        with open(p, "wb") as f:
+            f.write(b"Z")
+        os.utime(p, (1700000000 + i, 1700000000 + i))
+    os.chmod(big, 0o777)
+    r = req({"action": "preview", "source": HBASE + "/big", "output": HOUT})
+    d = r.get("result") or {}
+    mark("R10_big_total%s_sample%s_limited%s"
+         % (d.get("total"), d.get("sample_shown"), d.get("sample_limited")))
+
+    t0 = time.time()
+    r = req({"action": "start", "source": HBASE + "/big", "output": HOUT, "taskId": T["big"]}, timeout=180)
+    st = {}
+    for _ in range(120):
+        time.sleep(1)
+        q = req({"action": "status", "id": T["big"]})
+        st = q.get("state") or {}
+        if st.get("status") in ("done", "error", "cancelled"):
+            break
+    mark("R11_big_done_%s_succ%s_%ds" % (st.get("status"), st.get("success"), int(time.time() - t0)))
+
+    r = req({"action": "preview", "source": HBASE + "/big", "output": HOUT})
+    d = r.get("result") or {}
+    c = d.get("counts") or {}
+    mark("R12_big_prev2_total%s_dup%s_unver%s"
+         % (d.get("total"), c.get("dup", 0) + c.get("dup_unverified", 0), c.get("dup_unverified")))
 
     mark("RZ_all_done")
 

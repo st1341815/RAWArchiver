@@ -37,7 +37,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 </style>
 </head>
 <body>
-<h1>RAW 归档 <small>v1.0.19</small></h1>
+<h1>RAW 归档 <small>v1.0.20</small></h1>
 <div class="intro">
   按 <b>EXIF 拍摄日期</b>把相机照片 / 视频整理归档到 NAS，源目录只读。
   <b>已支持相机品牌</b>：佳能 Canon · 尼康 Nikon · 索尼 Sony · 富士 Fujifilm · 哈苏 Hasselblad · 徕卡 Leica 等；
@@ -453,6 +453,8 @@ $('btnPreview').onclick = async () => {
   if (d.volume && d.volume.seen_before) {
     w += '<br>这张卡 / 这个目录上次处理过：' + (d.volume.last_at || '—') + '（' + (d.volume.last_count||0) + ' 个文件）。';
   }
+  if (d.sample_limited) w += '<br>清单只列前 ' + (d.sample_shown || 500)
+    + ' 条（文件较多），<b>统计与去重按全部 ' + d.total + ' 个文件计算</b>，不受此限制。';
   if (d.bad_count) w += '<br>注意：' + d.bad_count + ' 个文件只能靠文件修改时间推断日期，请核对后再执行。';
   if (d.raw_skip_hint) w += '<br>提示：' + d.raw_skip_hint + ' 个照片读不到拍摄日期，执行时将被跳过（不拷贝）。';
   if (c.conflict) w += '<br>提示：' + c.conflict + ' 个目标同名但内容不同，将自动追加 _1/_2（这是真冲突，不是重复归档）。';
@@ -475,7 +477,10 @@ $('btnPreview').onclick = async () => {
   $('prevBody').innerHTML = (d.sample||[]).map(s => '<tr><td>' + s.src + '</td><td>' + (s.date||'—')
     + '</td><td class="' + (s.bad?'bad':'') + '">' + s.date_from + '</td><td>' + (s.dst_rel||'')
     + '</td><td>' + (VERDICT_LABEL[s.verdict] || s.verdict || '') + '</td></tr>').join('');
-  $('prevToggle').textContent = '文件清单（' + d.total + ' 个文件，点击展开/折叠）';
+  $('prevToggle').textContent = d.sample_limited
+    ? ('文件清单（共 ' + d.total + ' 个文件，此处只列前 ' + (d.sample_shown || (d.sample||[]).length)
+       + ' 个，点击展开/折叠）')
+    : ('文件清单（' + d.total + ' 个文件，点击展开/折叠）');
   $('previewBox').dataset.ready = '1'; check();
 };
 

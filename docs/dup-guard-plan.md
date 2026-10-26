@@ -385,3 +385,29 @@ SELFTEST_DUPGUARD_OK
 - 清理：测试容器、`/vol2/@appdata/rawarchiver/dgtest`、`/vol1/1000/octop_tmp`、测试写入的
   `ledger.sqlite3*` 全部删除（台账从空开始，首次真实预览会用 `/vol1/1000/Photos/log/_report_*.json` 自动回填）。
 - 回滚（如需）：把 git `8526cee` 版的同样 4 个文件按同法覆盖 + restart 即恢复 1.0.18 行为。
+
+### 12.1 v1.0.20（2026-10-26，同日二次部署）
+
+- 修 bug：`do_preview` 的 `limit` 之前把**统计一起截断**（>500 个文件时界面显示成 500）。现在只截
+  `sample`（清单展示条数），`total` / `counts` / `dup` / `raw_skip_hint` / `date_range` 一律按全部文件算；
+  新增 `sample_shown` / `sample_limited` 供前端提示「清单只列前 500 条，统计按全部 N 个算」。
+- 提速：新增 `_et_batch_info()` / `resolve_dates()` / `resolve_makes()` —— 视频走**批量 exiftool**
+  （每 100 个一次调用），预览与归档都不再「一文件一个 perl 进程」。
+  本机实测 600 个 MP4：预览 31s → **1.1s**；归档 → **4.9s**。
+- 设备端复测（.9，临时容器 + socket，13 项）：
+
+  ```
+  R1_info_1.0.20_fnos-gateway
+  R2_prev_new2_dup0_conf0
+  R3_start_True_skip / R4_done_succ2
+  R5_prev2_dup2_unver0_volTrue_guardTrue
+  R6_force_noguard_False_need_confirm
+  R7_force_ok_True / R8_force_done_succ2 / R9_copies_2_of_4
+  R10_big_total620_sample500_limitedTrue      ← 620 个文件：统计不再截断
+  R11_big_done_done_succ620_7s                ← 620 个归档 7 秒
+  R12_big_prev2_total620_dup620_unver0        ← 再预览 620 全判已归档
+  ```
+
+- ⚠️ 自检脚本的坑：`_dgcheck.py` 一开始复用固定 taskId，第二次跑会「续跑」到上次的 state
+  （`done_key` 全部命中 → 什么都不做，`success` 还是累计值），造成一批假失败。**taskId 必须每次唯一**
+  （脚本已改为带 `HHMMSS` 后缀）。真实 UI 的 taskId 是「时间戳_随机数」，不受影响。
