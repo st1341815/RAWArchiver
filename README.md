@@ -58,7 +58,7 @@
 ## 目录结构
 
 ```
-RAWArchiver/          项目本体（源码 + 文档 + 更正资料）
+RAWArchiver/          项目本体（v1.0.0 存档线：DSM 套件 / 源码包 / 更正资料）
 ├── scripts/raw_archiver.py   核心脚本（仅标准库；ExifTool 随包）
 ├── app/rawarchiver/          DSM（群晖）Web 面板 + CGI 入口
 ├── agent/agent.py            本机 FastAPI 版（8765）
@@ -165,8 +165,15 @@ desktop/              桌面原生 GUI（macOS SwiftUI / Windows WPF，共享 Py
 - `1.0.15`（软件介绍补充「已支持设备」品牌清单）。
 - `1.0.14`（**盘面整理**：任务态从输出目录迁到应用数据目录 `$TRIM_PKGVAR/.rawarchiver/`，日志与报告统一落 `<输出目录>/log/`，源目录与输出目录根部零残留；目录选择按钮文案改为「选择源目录」/「选择目标目录」）。
 - `1.0.13`：改造成飞牛统一网关微应用，目录选择走飞牛 JS SDK 系统内部弹窗（`pickSharedFile`）。
-- 核心与 fnOS 包的最新改动见 `RAWArchiver/CHANGELOG.md`。
+- 核心与 fnOS 包的最新改动见本 README 的「版本」段（`RAWArchiver/CHANGELOG.md` 只记录本体 v1.0.0 存档线）。
 
 ---
 
-> 说明：`RAWArchiver/`（本体）与 `fnos/`（应用包）是同一产品的两部分；核心脚本以 `RAWArchiver/scripts/raw_archiver.py` 为准，`fnos/rawarchiver/app/scripts/raw_archiver.py` 为其在 fnOS 包内的拷贝。
+> **两条分发线，核心脚本自 v1.0.14 起分叉**（改代码前先看清是哪一条）：
+>
+> | 线 | 核心脚本 | 任务态位置 | 说明 |
+> | --- | --- | --- | --- |
+> | **fnOS 应用包 / 桌面版**（在维护，当前 v1.0.20） | `fnos/rawarchiver/app/scripts/raw_archiver.py` | `$TRIM_PKGVAR/.rawarchiver/`（无该变量时回落应用根目录） | fnOS `.fpk` + macOS/Windows 原生版的**唯一真源**，`desktop/core-ipc` 也调它 |
+> | **本体**（v1.0.0 存档线，冻结） | `RAWArchiver/scripts/raw_archiver.py` | `<输出目录>/.rawarchiver/`（自包含） | 供 DSM 套件与「源码包」使用；**不跟随** v1.0.14+ 的演进（重复归档防护、批量解析等） |
+>
+> 需要最新能力（重复归档防护 / 批量 EXIF / 500+ 统计修复）时请用 `fnos/` 那份 —— 它只依赖标准库，可直接当 CLI 跑。
