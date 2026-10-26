@@ -9,7 +9,7 @@
   "apps": {
     "rawarchiver": {
       "display_name": "RAW 归档",
-      "desc": "<p>相机照片 / 视频按 <b>拍摄日期（EXIF）</b>整理归档到 NAS，源目录只读、可断点续跑、可清源，并生成机器可消费的报告。</p><p><b>已支持相机品牌</b>：佳能 Canon · 尼康 Nikon · 索尼 Sony · 富士 Fujifilm · 哈苏 Hasselblad · 徕卡 Leica 等；<b>运动相机</b>：大疆 DJI · GoPro 等（品牌表另含奥林巴斯 · 松下 · 宾得/理光 · 适马 · 飞思 · 三星 · Apple · 华为 · 小米）。</p><p><b>支持格式</b>：RAW（NEF · NRW · CR2 · CR3 · CRW · ARW · SRF · SR2 · RAF · ORF · RW2 · DNG · PEF）、JPG / JPEG、视频（MP4 · MOV · MTS · M2TS · AVI · MKV · 3GP · MPG · MPEG · WMV · FLV · M4V · TS · MOD · MXF）。手机拍的 JPG 照片与视频同样可归档；iPhone 默认的 HEIC / HEIF 暂不支持，需先转 JPG。</p><p><b>使用前提</b>：需在「应用中心 → RAW 归档 → 设置 → 授权目录」授权源目录（读）与归档目录（读+写）；读飞牛外接存储（SD/TF/U 盘）需先设「文件管理 → 设置 → 外接存储权限 → 所有账户可见」。</p>",
+      "desc": "<p>相机照片 / 视频按 <b>拍摄日期（EXIF）</b>整理归档到 NAS，源目录只读、可断点续跑、可清源，并生成机器可消费的报告。</p><p><b>已支持相机品牌</b>：佳能 Canon · 尼康 Nikon · 索尼 Sony · 富士 Fujifilm · 哈苏 Hasselblad · 徕卡 Leica 等；<b>运动相机</b>：大疆 DJI · GoPro 等（品牌表另含奥林巴斯 · 松下 · 宾得/理光 · 适马 · 飞思 · 三星 · Apple · 华为 · 小米）。</p><p><b>支持格式</b>：RAW（NEF · NRW · CR2 · CR3 · CRW · ARW · SRF · SR2 · RAF · ORF · RW2 · DNG · PEF）、JPG / JPEG、视频（MP4 · MOV · MTS · M2TS · AVI · MKV · 3GP · MPG · MPEG · WMV · FLV · M4V · TS · MOD · MXF）。手机拍的 JPG 照片与视频同样可归档；iPhone 默认的 HEIC / HEIF 暂不支持，需先转 JPG。</p><p><b>使用前提</b>：需在「应用中心 → RAW 归档 → 设置 → 授权目录」授权源目录（读）与归档目录（读+写）；读飞牛外接存储（SD/TF/U 盘）需先设「文件管理 → 设置 → 外接存储权限 → 所有账户可见」。</p><p><b>重复归档防护</b>：内置处理台账，记住「哪些文件已经归档过」；再次插卡时预览会标出「已归档 N 个」并<b>默认跳过</b>，不会重复堆 _1/_2 副本。确需重做可勾选「重新处理已归档文件」并二次确认；跨输出目录视为新文件；内容复核默认头尾各 256KB，可切全文件哈希。</p>",
       "platform": [
         "all"
       ],
@@ -30,6 +30,17 @@
       "is_docker": false,
       "service_port": "",
       "releases": {
+        "1.0.20": {
+          "changelog": "① 重复归档防护：新增处理台账，跨任务记住「哪些文件归档过」；预览显示「已归档 N 个」并默认跳过，要重处理需勾选 + 二次确认（含服务端确认凭据）；跨输出目录视为新文件；内容复核默认头尾各 256KB，可切全文件哈希；回滚联动失效；台账丢失由历史报告自动回填。② 修复：源目录超过 500 个文件时，预览总数/已归档数被错误截断成 500（归档本身不受限）。③ 提速：视频拍摄日期改为批量 exiftool 解析，600 个视频预览 31s → 1s、归档约 5s。",
+          "updated_at": "2026-10-26T21:20:00+08:00",
+          "packages": {
+            "all": {
+              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v1.0.20/rawarchiver-1.0.20.fpk",
+              "sha256": "bc08a15ea0ded9d6333ce91a5d9f4202576396cf6b11eed0b7bb9b5914a829e0",
+              "size": 280424
+            }
+          }
+        },
         "1.0.18": {
           "changelog": "飞牛外接存储（/vol00）正确识别为可移动介质；move 模式清源失败时日志明确说明原因（源目录对应用用户不可写）并给出「手动删除或改用复制模式」的指引，避免误以为归档失败。",
           "updated_at": "2026-10-20T11:08:00+08:00",

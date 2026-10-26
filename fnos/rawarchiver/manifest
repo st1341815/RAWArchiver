@@ -1,7 +1,7 @@
 appname               = rawarchiver
 version               = 1.0.20
 display_name          = RAW 归档
-desc                  = 相机照片/视频按拍摄日期（EXIF）归档工具。已支持相机品牌：佳能 Canon、尼康 Nikon、索尼 Sony、富士 Fujifilm、哈苏 Hasselblad、徕卡 Leica 等；运动相机：大疆 DJI、GoPro 等（另含奥林巴斯、松下、宾得/理光、适马、飞思、三星、Apple、华为、小米）。支持格式：RAW（NEF/NRW/CR2/CR3/CRW/ARW/SRF/SR2/RAF/ORF/RW2/DNG/PEF）、JPG/JPEG、视频（MP4/MOV/MTS/M2TS/AVI/MKV/3GP/MPG/MPEG/WMV/FLV/M4V/TS/MOD/MXF）；手机拍摄的 JPG 照片与视频同样可归档（iPhone 默认的 HEIC/HEIF 暂不支持）。从 SD/TF/U 盘或本地目录读取拍摄日期，按 YYYYMMDD 归档到指定 NAS 目录；源只读、可断点续跑、可清源、生成机器可消费报告；内置 ExifTool，照片无 EXIF 跳过、视频可用文件时间兜底。
+desc                  = 相机照片/视频按拍摄日期（EXIF）归档工具。已支持相机品牌：佳能 Canon、尼康 Nikon、索尼 Sony、富士 Fujifilm、哈苏 Hasselblad、徕卡 Leica 等；运动相机：大疆 DJI、GoPro 等（另含奥林巴斯、松下、宾得/理光、适马、飞思、三星、Apple、华为、小米）。支持格式：RAW（NEF/NRW/CR2/CR3/CRW/ARW/SRF/SR2/RAF/ORF/RW2/DNG/PEF）、JPG/JPEG、视频（MP4/MOV/MTS/M2TS/AVI/MKV/3GP/MPG/MPEG/WMV/FLV/M4V/TS/MOD/MXF）；手机拍摄的 JPG 照片与视频同样可归档（iPhone 默认的 HEIC/HEIF 暂不支持）。从 SD/TF/U 盘或本地目录读取拍摄日期，按 YYYYMMDD 归档到指定 NAS 目录；源只读、可断点续跑、可清源、生成机器可消费报告；内置 ExifTool，照片无 EXIF 跳过、视频可用文件时间兜底。自带重复归档防护：处理台账记住已归档的文件，再次插卡默认跳过已归档（可勾选强制重处理，需二次确认），避免重复堆副本。
 source                = thirdparty
 platform              = all
 maintainer            = uncle13
