@@ -1,3 +1,13 @@
+> ## ⚠️ 已冻结存档（ARCHIVED）
+>
+> 本目录是 **v1.0.0 存档线**（DSM 套件 / 源码包），**自 2026-10 起不再维护、不再发布**：
+>
+> - 它**不包含**后续能力：重复归档防护（台账）、批量 EXIF 解析、500+ 文件统计修复、飞牛统一网关微应用改造等；
+> - 它**不是**当前发布的安装包来源 —— fnOS `.fpk` 在 `../fnos/`，macOS/Windows 原生版在 `../desktop/`；
+> - `scripts/raw_archiver.py` 的任务态写在 `<输出目录>/.rawarchiver/`（自包含），与 fnos 线（`$TRIM_PKGVAR/.rawarchiver/`）**不同**，别混用。
+>
+> 只做两件事：保留历史实现 + 存放当年核对用的更正版 PDF（`corrections/`）。新功能一律改 `../fnos/rawarchiver/app/`。
+
 # RAW 归档 v1.0.0
 
 相机照片按拍摄日期整理归档工具。直接从 SD/TF/U 盘读取拍摄日期，按 `YYYYMMDD` 归档 RAW/JPG/视频到任意 NAS 目录。

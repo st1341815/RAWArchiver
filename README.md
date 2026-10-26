@@ -6,8 +6,9 @@
 > - **Formats**: NEF/NRW/CR2/CR3/CRW/ARW/SRF/SR2/RAF/ORF/RW2/DNG/PEF · JPG/JPEG · MP4/MOV/MTS/M2TS/AVI/MKV/3GP/MPG/MPEG/WMV/FLV/M4V/TS/MOD/MXF
 > - **Brands**: Canon · Nikon · Sony · Fujifilm · Hasselblad · Leica · Olympus · Panasonic · Pentax/Ricoh · Sigma · Phase One · Samsung · Apple · Huawei · Xiaomi · DJI · GoPro
 > - **Safety**: source is **read-only** · **already-archived files are skipped automatically**（重复归档防护）· photos without EXIF date are **skipped** · resumable · optional source cleanup after verified copy · machine-readable JSON report
+> - **维护状态**：**fnOS `.fpk`（v1.0.20）为当前主线**，桌面原生版（macOS/Windows，v1.1.1）随同发布；`RAWArchiver/` 本体（DSM 套件 / 源码包，v1.0.0）**已冻结存档，不再维护、不再发布**
 > - **Download**: [Releases](https://github.com/st1341815/RAWArchiver/releases)
-> - **三平台产物统一在版本 Release 里**（如 `v1.1.0`）：`.fpk` = fnOS 应用包 · `.dmg` = macOS 安装包 · `.zip` = Windows 便携包
+> - **产物按版本线发布**：fnOS 应用包走 `v1.0.x`（如 `v1.0.20`，只含 `.fpk`）；桌面原生版走 `v1.1.x`（如 `v1.1.1`，只含 `.dmg` / `.exe`）。按平台选对应版本下载
 > - **macOS 版**（MacBook / Apple Silicon M 系列，**原生 SwiftUI**）：下载 `RawArchiver-macOS-<版本>-arm64.dmg` → 双击挂载 → 把 `RawArchiver.app` 拖进「应用程序」→ **首次打开右键 → 打开**（未做 Apple 公证）
 > - **Windows 版**（Win10/11 x64，**原生 WPF**）：下载 `RawArchiver-windows-<版本>-x64.exe` → **双击即用**（单文件免安装，无需解压、无需安装 .NET/Python）
 
@@ -60,9 +61,9 @@
 ```
 RAWArchiver/          项目本体（v1.0.0 存档线：DSM 套件 / 源码包 / 更正资料）
 ├── scripts/raw_archiver.py   核心脚本（仅标准库；ExifTool 随包）
-├── app/rawarchiver/          DSM（群晖）Web 面板 + CGI 入口
+├── app/rawarchiver/          DSM（群晖）Web 面板 + CGI 入口（存档，已冻结）
 ├── agent/agent.py            本机 FastAPI 版（8765）
-├── pkg/                      DSM SPK / fnOS FPK 打包源
+├── pkg/                      DSM SPK 打包源（存档；fnOS 包见 fnos/）
 ├── vendor/exiftool/          随包 ExifTool
 └── corrections/              更正版开发说明 PDF + 核对报告 + 差异清单
 
@@ -103,12 +104,40 @@ desktop/              桌面原生 GUI（macOS SwiftUI / Windows WPF，共享 Py
   cd desktop/windows && bash build.sh  # 产出单文件 RawArchiver-windows-<版本>-x64.exe
   ```
   或由 GitHub Actions（`build-windows.yml`，windows-latest runner）自动构建/发布。
-- **本体：DSM 套件（SPK）/ fnOS 包（FPK）/ 源码包**
+- **fnOS 应用包（.fpk）—— 唯一在维护的 NAS 发行物**
   ```
-  cd RAWArchiver
-  sh scripts/fetch_exiftool.sh
-  sh build_all.sh
+  cd fnos && bash build.sh            # 产出 fnos/dist/rawarchiver.fpk，并打印本次 Release 附件名
   ```
+- ~~**本体：DSM 套件（SPK）/ 源码包**~~ —— **已冻结存档，不再维护**；`RAWArchiver/build_all.sh` 仅作历史参考，产物不再更新、不再发布。
+
+## 日常维护（fnOS `.fpk` 线）
+
+> `RAWArchiver/`（DSM/源码包）已冻结；**以后只维护 `fnos/`**。改一处走完这四步：
+
+1. **改代码** —— 全在 `fnos/rawarchiver/app/`：
+   | 文件 | 职责 |
+   | --- | --- |
+   | `scripts/raw_archiver.py` | 核心（扫描 / EXIF / 去重台账 / 归档 / 清源 / 报告），只依赖标准库 |
+   | `server.py` | 飞牛统一网关微应用的后端（unix socket，静态 www + `/api`） |
+   | `api/index.cgi` | 传统 CGI 通道（与 server.py 的动作保持一致） |
+   | `www/index.html` | 单页界面（预览 / 进度 / 目录选择 / 确认门） |
+
+2. **自检**（必须过再往下走）
+   ```
+   PYTHONPATH= python3 fnos/selftest_dupguard.py     # → SELFTEST_DUPGUARD_OK checks=32
+   python3 -m py_compile fnos/rawarchiver/app/server.py
+   python3 -c "import ast;ast.parse(open('fnos/rawarchiver/app/api/index.cgi',encoding='utf-8').read())"
+   bash -n fnos/build.sh
+   ```
+   改了界面想先看效果：`PYTHONPATH= python3 fnos/_mock_server.py 8777` 然后开 `http://127.0.0.1:8777/app/rawarchiver/`
+   （mock 服务直连真实 core，不需要装到 NAS）。
+
+3. **打包** —— 先 bump 五处版本号（`manifest` / `server.py` VERSION / `api` version / `www` 的 `<small>vX.Y.Z` /
+   `raw_archiver.py` 的 `APP_VER`），再 `cd fnos && bash build.sh`，产出 `fnos/dist/rawarchiver.fpk`。
+   真机验证可用 `fnos/_dgcheck.py`（临时容器直连网关 socket，13 项冒烟，结果用文件名回写）。
+
+4. **发版** —— `git tag vX.Y.Z` 并推送；Release 附件名固定 `rawarchiver-X.Y.Z.fpk`；
+   `fnpack.json` 在 `releases` 下**新增**节点（`download_url` / `sha256` / `size`），旧节点保留。
 
 ## 发版（GitHub Release）规范
 
