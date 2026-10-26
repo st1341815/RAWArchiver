@@ -36,10 +36,15 @@
 
 ```json
 {"brandFolder": false, "handleJpg": true, "handleVideo": true,
- "staging": true, "mode": "copy"}
+ "staging": true, "mode": "copy",
+ "dupHash": "sampled", "dupPolicy": "skip", "dupGuard": ""}
 ```
 
-`mode` 取 `"copy"` 或 `"move"`。
+- `mode` 取 `"copy"` 或 `"move"`。
+- `dupHash` 取 `"sampled"`（默认，头尾各 256KB）或 `"full"`（全文件哈希，慢但最严）。
+- `dupPolicy` 取 `"skip"`（默认，跳过已归档）或 `"force"`（重新处理已归档，会产生 `_1/_2` 副本）。
+- `dupGuard`：**预览返回的 `dup_guard`**。`dupPolicy=force` 时必须原样回传，否则 `start` 返回 `need_confirm`。
+  凭据绑定 `source + output + opts`，30 分钟有效；改了任何一项都要重新 `preview`。
 
 ## 4. 消息示例
 
@@ -53,16 +58,39 @@
 ### 4.2 preview
 
 ```
-→ {"id":2,"cmd":"preview","source":"/Volumes/SD/DCIM","output":"/Users/u/归档","opts":{"brandFolder":false,"handleJpg":true,"handleVideo":true,"staging":true,"mode":"copy"}}
-← {"id":2,"ok":true,"result":{"source":"/Volumes/SD/DCIM","removable":true,"total":128,"size":3670016000,
+→ {"id":2,"cmd":"preview","source":"/Volumes/SD/DCIM","output":"/Users/u/归档",
+   "opts":{"brandFolder":false,"handleJpg":true,"handleVideo":true,"staging":true,"mode":"copy",
+           "dupHash":"sampled"}}
+← {"id":2,"ok":true,"result":{"source":"/Volumes/SD/DCIM","output":"/Users/u/归档",
+    "removable":true,"total":128,"size":3670016000,
     "by_type":{".cr3":80,".jpg":40,".mov":8},"date_range":["2024-05-01","2024-07-12"],
-    "bad_count":3,"conflicts":2,"raw_skip_hint":1,
+    "bad_count":3,"conflicts":0,"raw_skip_hint":1,
+    "counts":{"new":4,"dup":120,"dup_unverified":4,"missing":0,"conflict":0,"nodate":0},
+    "dup":{"count":124,"verified":120,"unverified":4,"missing":0,"bytes":3500000000,
+           "last_at":"2026-10-20 09:12:33",
+           "sample":[{"src":"DCIM/100CANON/IMG_0001.CR3","prev_dst":"20240506/IMG_0001_20240506.CR3",
+                      "archived_at":"2026-10-20 09:12:33","task":"20261020_091245_1234",
+                      "level":"l1","verdict":"dup"}, ...]},
+    "volume":{"seen_before":true,"last_at":"2026-10-20 09:12:33","last_count":124},
+    "dup_guard":"8f3c1d92a4b7e650",
     "removable_note":"move 模式归档成功后将清空源设备","exiftool":true,
     "sample":[{"src":"DCIM/100CANON/IMG_0001.CR3","size":30123123,"date":"2024-05-06",
-               "date_from":"exiftool","dst_rel":"20240506/IMG_0001_20240506.CR3","bad":false,"skip":false}, ...]}}
+               "date_from":"exiftool","dst_rel":"20240506/IMG_0001_20240506.CR3","bad":false,
+               "verdict":"dup","skip":false}, ...]}}
 ```
 
-`sample` 最多 500 条（core `limit`）。
+`sample` 最多 500 条（core `limit`）。`counts` 六类：
+
+| verdict | 含义 | 默认行为 |
+|---|---|---|
+| `new` | 新文件 | 归档 |
+| `dup` | 已归档（元数据命中，无需读盘） | 跳过 |
+| `dup_unverified` | 疑似已归档，待执行时内容复核 | 复核后跳过 / 判为冲突 |
+| `missing` | 有归档记录但归档文件已不在原位 | 重新归档 |
+| `conflict` | 目标同名但内容不同（真冲突） | 归档并追加 `_1` |
+| `nodate` | 照片无拍摄日期 | 跳过 |
+
+**GUI 必须把 `dupGuard` 保存下来**，`dupPolicy=force` 时回传；`DUP.count = dup + dup_unverified` 用于确认文案。
 
 ### 4.3 start + 事件流
 
@@ -72,12 +100,16 @@
    "taskId":"20261023_153000_1234"}
 ← {"id":3,"ok":true,"taskId":"20261023_153000_1234"}          ← 立即返回，任务在后台
 ← {"evt":"progress","taskId":"20261023_153000_1234","status":"running","current":10,"total":128,
-   "success":8,"failed":0,"skipped":2,
+   "success":8,"failed":0,"skipped":2,"skipped_dup":2,"skipped_nodate":0,
    "logs":[{"t":"2026-10-23 15:30:01","msg":"待处理 128 个文件"},
            {"t":"2026-10-23 15:30:02","status":"ok","src":"DCIM/100CANON/IMG_0001.CR3","dst":"20240506/IMG_0001_20240506.CR3"}, ...]}
 ← {"evt":"progress", ...}                                       ← 每 500ms 一条，logs 为增量
-← {"evt":"done","taskId":"20261023_153000_1234","status":"done","success":125,"failed":0,"skipped":3,"error":""}
+← {"evt":"done","taskId":"20261023_153000_1234","status":"done","success":4,"failed":0,
+   "skipped":124,"skipped_dup":124,"skipped_nodate":0,"error":""}
 ```
+
+> `start` 的 `dupPolicy=force` 若未带有效 `dupGuard`，返回
+> `{"id":3,"ok":false,"error":"确认凭据不存在或已失效，请重新预览后再确认"}`（对应 core 的 `need_confirm`）。
 
 ### 4.4 cancel / cleanup / rollback / shutdown
 

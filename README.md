@@ -5,7 +5,7 @@
 > - **Search keywords**: photo organizer · RAW workflow · EXIF date sorting · digital asset management (DAM) · NAS photo backup · camera card offload · 飞牛 fnOS 相册整理 · RAW 归档
 > - **Formats**: NEF/NRW/CR2/CR3/CRW/ARW/SRF/SR2/RAF/ORF/RW2/DNG/PEF · JPG/JPEG · MP4/MOV/MTS/M2TS/AVI/MKV/3GP/MPG/MPEG/WMV/FLV/M4V/TS/MOD/MXF
 > - **Brands**: Canon · Nikon · Sony · Fujifilm · Hasselblad · Leica · Olympus · Panasonic · Pentax/Ricoh · Sigma · Phase One · Samsung · Apple · Huawei · Xiaomi · DJI · GoPro
-> - **Safety**: source is **read-only** · photos without EXIF date are **skipped** · resumable · optional source cleanup after verified copy · machine-readable JSON report
+> - **Safety**: source is **read-only** · **already-archived files are skipped automatically**（重复归档防护）· photos without EXIF date are **skipped** · resumable · optional source cleanup after verified copy · machine-readable JSON report
 > - **Download**: [Releases](https://github.com/st1341815/RAWArchiver/releases)
 > - **三平台产物统一在版本 Release 里**（如 `v1.1.0`）：`.fpk` = fnOS 应用包 · `.dmg` = macOS 安装包 · `.zip` = Windows 便携包
 > - **macOS 版**（MacBook / Apple Silicon M 系列，**原生 SwiftUI**）：下载 `RawArchiver-macOS-<版本>-arm64.dmg` → 双击挂载 → 把 `RawArchiver.app` 拖进「应用程序」→ **首次打开右键 → 打开**（未做 Apple 公证）
@@ -29,6 +29,31 @@
 | 视频 | `.mp4` `.mov` `.mts` `.m2ts` `.avi` `.mkv` `.3gp` `.mpg` `.mpeg` `.wmv` `.flv` `.m4v` `.ts` `.mod` `.mxf` |
 
 **手机照片**：手机拍的 **JPG 照片与视频**同样可归档（Android 多数直接出 JPG）。**iPhone 默认的 HEIC / HEIF 暂不支持**——需在手机端改为兼容格式（设置 → 相机 → 格式 → 兼容性最佳）或先转成 JPG；不在上述清单内的扩展名不会被扫描，也就不会归档。
+
+## 重复归档防护（Dup Guard）
+
+> 场景：卡上的照片不能删（或忘记删），下次插卡再归档 → 同一批照片被再处理一遍，目标目录里长出 `_1/_2/_3` 副本。
+
+现在系统**记得「处理过」这件事**：每次归档成功写入一份台账（`<应用数据目录>/.rawarchiver/ledger.sqlite3`），
+下次预览就会把它们标出来并**默认跳过**；要重处理必须显式确认。
+
+**三级证据（成本递增，命中即停）**
+
+| 级别 | 判据 | 额外读盘 |
+| --- | --- | --- |
+| L1 元数据 | 文件名 + 大小 + mtime 命中台账，且归档文件仍在 | 无（只 stat） |
+| L2 内容 | 同名同大小 → 与归档文件比对内容（默认头尾各 256KB） | 512 KB |
+| L3 现场 | 当前选项算出的目标路径已存在 → 比对内容（台账丢失时的兜底） | 1 MB |
+
+**行为约定**
+
+- 默认**跳过已归档**；预览里显示「已归档 N 个（约 X GB）」并可展开清单（原归档位置 / 时间 / 判定依据）。
+- 勾选「重新处理已归档文件」后才会重做，且**二次确认**；GUI/API 侧还要求预览签发的 `dupGuard`（30 分钟有效，绑定源/输出/选项），直接调 API 绕不过去。
+- **跨输出目录不算重复**：同一张卡归档到另一个目录视为新文件（允许有意做第二份）。
+- `size` 相同不等于同一张照片：所有「靠大小判等」的路径都做**内容复核**，判不准一律按新文件处理（宁可重复，不可丢失）。
+- 内容复核强度可切：默认 `sampled`（头尾各 256KB），可开「全文件校验」（`--dup-hash full`）。
+- 回滚过的任务，其台账记录自动失效，下次会重新归档。
+- 台账为空/丢失时，自动从 `<输出目录>/log/_report_*.json` 回填，升级后第一次运行也不会重新堆副本。
 
 ## 目录结构
 
@@ -122,14 +147,15 @@ desktop/              桌面原生 GUI（macOS SwiftUI / Windows WPF，共享 Py
 | 源目录 | **只读**，归档过程不产生任何文件或文件夹 |
 | `<输出目录>/` | 只落归档照片/视频（按 `YYYYMMDD` 或 `品牌/YYYYMMDD`） |
 | `<输出目录>/log/` | 运行日志 `rawarchiver_<任务ID>.log` + 下游报告 `_report_<任务ID>.json` |
-| 应用数据目录 `$TRIM_PKGVAR/.rawarchiver/` | 任务态 `tasks/<任务ID>/{state.json,cancel,stage/}`（断点续跑、取消、内部暂存） |
+| 应用数据目录 `$TRIM_PKGVAR/.rawarchiver/` | 任务态 `tasks/<任务ID>/{state.json,cancel,stage/}`（断点续跑、取消、内部暂存）+ **处理台账 `ledger.sqlite3`**（重复归档防护） |
 
 > 「内部暂存」放在应用数据目录，所以暂存会占用**应用所在存储卷**的空间（临时占用 ≈ 卡容量，跑完自动清理）。
 > 卡容量大于该卷可用空间时，请取消勾选「内部暂存」。
 
 ## 版本
 
-- 当前 `1.1.0`（**桌面 GUI 重构为原生窗口**：macOS 改用 SwiftUI、Windows 改用 WPF，弃用 pywebview/内嵌 WebView；功能与 1.0.18 等价。核心引擎经新增的 `desktop/core-ipc`（NDJSON）被原生 GUI 调用，`raw_archiver.py` 逻辑不变）。
+- `1.0.19`（**重复归档防护**：新增处理台账 `$TRIM_PKGVAR/.rawarchiver/ledger.sqlite3`，跨任务/跨天记住「哪些文件归档过」；预览显示「已归档 N 个」并默认跳过，要重处理必须勾选 + 二次确认（GUI 还要求预览签发的 `dupGuard`）；跨输出目录视为新文件；内容复核默认头尾各 256KB，可切全文件哈希；回滚联动失效；台账丢失由历史报告自动回填。自检 `fnos/selftest_dupguard.py` 32 项全过）。
+- `1.1.0`（**桌面 GUI 重构为原生窗口**：macOS 改用 SwiftUI、Windows 改用 WPF，弃用 pywebview/内嵌 WebView；功能与 1.0.18 等价。核心引擎经新增的 `desktop/core-ipc`（NDJSON）被原生 GUI 调用，`raw_archiver.py` 逻辑不变）。
 - `1.0.18`（**小修**：飞牛外接存储 `/vol00` 正确识别为可移动介质；move 模式清源失败时日志说明原因并给出「手动删除或改用复制模式」的指引）。
 - **同版本新增 macOS 平台**：`RawArchiver.app`（Apple Silicon / M 系列，pywebview 原生窗口 + 同一份核心/前端），Release 附件 `RawArchiver-macOS-1.0.18-arm64.dmg`。核心引擎零改动，仅新增平台壳（`macos/`）。
 - **同版本新增 Windows 平台**：`RawArchiver.exe`（Win10/11 x64，pywebview EdgeChromium 窗口 + 同一份核心/前端），Release 附件 `RawArchiver-windows-1.0.18-x64.zip`；core 的 `is_removable` 增加 Windows 盘符（GetDriveTypeW）识别，纯增量、POSIX 无影响。

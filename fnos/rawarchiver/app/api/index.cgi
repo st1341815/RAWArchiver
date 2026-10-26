@@ -5,7 +5,8 @@
 请求：POST，body 为 JSON {"action": ..., ...}（action 也可放在 query 上）。
 响应：Content-Type: application/json，body 为单个 JSON。
 
-动作：info / doctor / devices / browse / mkdir / preview / start / status / cancel / cleanup / rollback
+动作：info / doctor / devices / browse / mkdir / preview / start / status / cancel / cleanup / rollback / ledger
+重复归档防护：preview 返回 counts/dup/volume/dup_guard；start 支持 dupPolicy=skip|force（force 需 dupGuard）。
 说明：所有实际归档逻辑都在随包核心脚本 scripts/raw_archiver.py（只用标准库）；
      本 API 只做参数转发与状态读取。照片无 EXIF 视为未知并跳过，视频可用文件时间兜底。
 """
@@ -79,8 +80,19 @@ def optargs(b):
         a.append("--no-video")
     if b.get("monthDir"):
         a.append("--month")
+    a += ["--dup-hash", "full" if b.get("dupHash") == "full" else "sampled"]
     a.append("--staging" if b.get("staging", True) else "--no-staging")
     return a
+
+
+def dup_opts(b):
+    return {"brand_folder": bool(b.get("brandFolder")),
+            "handle_jpg": b.get("handleJpg") is not False,
+            "handle_video": b.get("handleVideo") is not False,
+            "month_dir": bool(b.get("monthDir")),
+            "staging": bool(b.get("staging", True)),
+            "mode": b.get("mode", "copy"),
+            "dup_hash": "full" if b.get("dupHash") == "full" else "sampled"}
 
 
 def list_devices():
@@ -147,7 +159,7 @@ def main():
     out = (b.get("output") or "").strip()
 
     if act == "info":
-        emit({"ok": True, "app": "RAW 归档", "version": "1.0.18", "mode": "fnos-cgi",
+        emit({"ok": True, "app": "RAW 归档", "version": "1.0.19", "mode": "fnos-cgi",
               "script": SCRIPT, "python": pybin()})
     elif act == "doctor":
         emit({"ok": True, "result": json.loads(call("--doctor"))})
@@ -166,15 +178,25 @@ def main():
         if not b.get("source"):
             emit({"ok": False, "error": "source 必填"})
         else:
-            emit({"ok": True, "result": json.loads(
-                call(b["source"], "--output", out or ".", "--preview", *optargs(b)))})
+            args = [b["source"], "--preview"]
+            if out:
+                args += ["--output", out]
+            emit({"ok": True, "result": json.loads(call(*args, *optargs(b)))})
     elif act == "start":
         if not (b.get("source") and out):
             emit({"ok": False, "error": "source 与 output 必填"})
+        elif (b.get("dupPolicy") or "skip") not in ("skip", "force"):
+            emit({"ok": False, "error": "dupPolicy 非法: %s" % b.get("dupPolicy")})
+        elif (b.get("dupPolicy") or "skip") == "force" and not core.check_guard(
+                b.get("dupGuard"), b["source"], out, dup_opts(b))[0]:
+            _ok, _err = core.check_guard(b.get("dupGuard"), b["source"], out, dup_opts(b))
+            emit({"ok": False, "code": "need_confirm", "error": _err})
         else:
             tid = b.get("taskId") or "%s_%d" % (time.strftime("%Y%m%d_%H%M%S"), random.randint(1000, 9999))
             args = [b["source"], "--output", out, "--mode", b.get("mode", "copy"),
                     "--task-id", tid, *optargs(b)]
+            if (b.get("dupPolicy") or "skip") == "force":
+                args += ["--dup-policy", "force", "--dup-guard", str(b.get("dupGuard") or "")]
             lf_path = core.log_path(out, tid)
             Path(lf_path).parent.mkdir(parents=True, exist_ok=True)
             lf = open(lf_path, "a", encoding="utf-8")
@@ -200,6 +222,25 @@ def main():
             emit({"ok": True})
     elif act == "cleanup":
         emit({"ok": True, **json.loads(call("--output", out, "--task-id", b.get("taskId", ""), "--cleanup"))})
+    elif act == "ledger":
+        op = b.get("op") or "stats"
+        if op == "stats":
+            emit(core.ledger_stats(out or None))
+        elif op == "rebuild":
+            if not out:
+                emit({"ok": False, "error": "rebuild 需 output"})
+            else:
+                conn = core.ledger_conn()
+                try:
+                    n = core.rebuild_from_reports(conn, out)
+                    conn.commit()
+                finally:
+                    conn.close()
+                emit({"ok": True, "added": n, "output": out})
+        elif op == "prune":
+            emit(core.ledger_prune(out or None, int(b.get("days") or 180)))
+        else:
+            emit({"ok": False, "error": "未知 op: %s" % op})
     elif act == "rollback":
         emit({"ok": True, **json.loads(call("--output", out, "--task-id", b.get("taskId", ""), "--rollback"))})
     else:

@@ -25,7 +25,7 @@ import time
 FROZEN = bool(getattr(sys, "frozen", False))
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 
 
 def _find_core():
@@ -106,6 +106,9 @@ def core_opts(opts):
         "handle_video": bool(opts.get("handleVideo", True)),
         "staging": bool(opts.get("staging", True)),
         "mode": opts.get("mode", "copy"),
+        "dup_hash": "full" if opts.get("dupHash") == "full" else "sampled",
+        "dup_policy": opts.get("dupPolicy") or "skip",
+        "dup_guard": opts.get("dupGuard") or "",
     }
 
 
@@ -114,7 +117,8 @@ def preview(req, core):
     popts = core_opts(req.get("opts", {}))
     if not src or not os.path.isdir(src):
         raise ValueError("源目录不存在或不可读: %s" % src)
-    return core.do_preview(src, popts, limit=500)
+    # output 必须传：判重（已归档/冲突）是按「真实输出目录」算的
+    return core.do_preview(src, popts, limit=500, output=req.get("output") or None)
 
 
 def start_task(req, core):
@@ -125,6 +129,11 @@ def start_task(req, core):
         raise ValueError("source 与 output 必填")
     if not os.path.isdir(src):
         raise ValueError("源目录不存在或不可读: %s" % src)
+    # 确认门：重处理已归档必须先在预览里确认过（GUI 勾选 + 二次确认 → 传 dupGuard）
+    if opts["dup_policy"] == "force":
+        ok_g, err_g = core.check_guard(opts["dup_guard"], src, out, opts)
+        if not ok_g:
+            raise PermissionError(err_g)
 
     tid = req.get("taskId") or "%s_%d" % (time.strftime("%Y%m%d_%H%M%S"), random.randint(1000, 9999))
     core_args = [src, "--output", out, "--mode", opts["mode"], "--task-id", tid]
@@ -134,7 +143,10 @@ def start_task(req, core):
         core_args.append("--no-jpg")
     if not opts["handle_video"]:
         core_args.append("--no-video")
+    core_args += ["--dup-hash", opts["dup_hash"]]
     core_args.append("--staging" if opts["staging"] else "--no-staging")
+    if opts["dup_policy"] == "force":
+        core_args += ["--dup-policy", "force", "--dup-guard", opts["dup_guard"], "--require-guard"]
 
     logpath = core.log_path(out, tid)
     os.makedirs(os.path.dirname(logpath), exist_ok=True)
@@ -160,11 +172,17 @@ def monitor(tid, core):
             emit({"evt": "progress", "taskId": tid, "status": status,
                   "current": st.get("current", 0), "total": st.get("total", 0),
                   "success": st.get("success", 0), "failed": st.get("failed", 0),
-                  "skipped": st.get("skipped", 0), "logs": new_logs})
+                  "skipped": st.get("skipped", 0),
+                  "skipped_dup": st.get("skipped_dup", 0),
+                  "skipped_nodate": st.get("skipped_nodate", 0),
+                  "logs": new_logs})
             if status in ("done", "error", "cancelled"):
                 emit({"evt": "done", "taskId": tid, "status": status,
                       "success": st.get("success", 0), "failed": st.get("failed", 0),
-                      "skipped": st.get("skipped", 0), "error": st.get("error", "")})
+                      "skipped": st.get("skipped", 0),
+                      "skipped_dup": st.get("skipped_dup", 0),
+                      "skipped_nodate": st.get("skipped_nodate", 0),
+                      "error": st.get("error", "")})
                 break
         time.sleep(0.5)
 

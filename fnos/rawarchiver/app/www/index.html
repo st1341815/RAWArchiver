@@ -37,7 +37,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 </style>
 </head>
 <body>
-<h1>RAW 归档 <small>v1.0.18</small></h1>
+<h1>RAW 归档 <small>v1.0.19</small></h1>
 <div class="intro">
   按 <b>EXIF 拍摄日期</b>把相机照片 / 视频整理归档到 NAS，源目录只读。
   <b>已支持相机品牌</b>：佳能 Canon · 尼康 Nikon · 索尼 Sony · 富士 Fujifilm · 哈苏 Hasselblad · 徕卡 Leica 等；
@@ -69,6 +69,8 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 <label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optJpg" checked> 处理 JPG</label>
 <label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optVideo" checked> 处理视频</label>
 <label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optStaging" checked> 内部暂存（卡源推荐）</label>
+<label style="display:inline-block;margin:0 16px 0 0;font-weight:400" title="打开后会对疑似重复的文件做全文件哈希比对，极大降低误判，但读盘更慢"><input type="checkbox" id="optHashFull"> 全文件校验（较慢）</label>
+<label style="display:inline-block;margin:0 16px 0 0;font-weight:400;color:#b45309" title="默认跳过已经归档过的文件，避免重复落盘；勾选后会再处理一遍并产生 _1/_2 副本"><input type="checkbox" id="optForceDup"> 重新处理已归档文件（产生副本）</label>
 </div>
 
 <label>模式
@@ -89,10 +91,17 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 <div id="previewBox" style="display:none;margin-top:16px">
   <div id="prevSummary"></div>
   <div id="prevWarn" class="warn"></div>
+  <details id="prevDupDetails" style="display:none">
+    <summary id="prevDupToggle" style="cursor:pointer;font-weight:600;margin-top:8px;color:#b45309">已归档文件清单</summary>
+    <div style="overflow:auto;max-height:320px">
+      <table><thead><tr><th>源文件</th><th>原归档位置</th><th>归档时间</th><th>判定依据</th></tr></thead>
+      <tbody id="prevDupBody"></tbody></table>
+    </div>
+  </details>
   <details id="prevDetails">
     <summary id="prevToggle" style="cursor:pointer;font-weight:600;margin-top:8px">文件清单</summary>
     <div style="overflow:auto">
-      <table><thead><tr><th>源文件</th><th>拍摄日期</th><th>日期来源</th><th>目标路径</th></tr></thead>
+      <table><thead><tr><th>源文件</th><th>拍摄日期</th><th>日期来源</th><th>目标路径</th><th>判定</th></tr></thead>
       <tbody id="prevBody"></tbody></table>
     </div>
   </details>
@@ -301,9 +310,15 @@ load();
 const isRemovable = () => /^\/(volumeUSB|vol00|mnt\/usb|media|run\/media|Volumes)|^[A-Za-z]:\\/.test($('srcPath').value.trim());
 const check = () => { const ok = $('srcPath').value.trim() && $('outPath').value.trim() && $('previewBox').dataset.ready === '1';
   $('btnStart').disabled = !ok; };
-$('srcPath').oninput = () => { save(); check(); $('srcHint').textContent=''; };
-$('outPath').oninput = () => { save(); check(); $('outHint').textContent=''; };
-$('optMode').onchange = save;
+// 任何输入/选项变化都让上次预览作废（确认凭据绑定源/输出/选项，变了必须重新预览）
+let DUP = {count:0, bytes:0, guard:'', lastAt:''};
+const invalidate = () => { $('previewBox').dataset.ready = ''; check(); };
+$('srcPath').oninput = () => { save(); invalidate(); $('srcHint').textContent=''; };
+$('outPath').oninput = () => { save(); invalidate(); $('outHint').textContent=''; };
+$('optMode').onchange = () => { save(); invalidate(); };
+['optBrand','optJpg','optVideo','optStaging','optHashFull'].forEach(id => {
+  const el = $(id); if (el) el.onchange = invalidate;
+});
 
 $('browseSrc').onclick = async () => {
   const paths = await pickFolderNative('选择源目录');
@@ -393,29 +408,73 @@ $('dirOk').onclick = () => {
   save(); check();
 };
 
+const fs = n => n >= 1073741824 ? (n/1073741824).toFixed(2) + ' GB'
+  : n >= 1048576 ? (n/1048576).toFixed(1) + ' MB'
+  : n >= 1024 ? (n/1024).toFixed(0) + ' KB' : (n||0) + ' B';
+const VERDICT_LABEL = {new:'新文件', dup:'已归档', dup_unverified:'待校验', missing:'原文件已不在', conflict:'同名冲突', nodate:'无日期'};
+const LEVEL_LABEL = {l1:'元数据', l2:'内容', l3:'现场'};
+
 $('btnPreview').onclick = async () => {
   const body = {source: $('srcPath').value.trim(), output: $('outPath').value.trim(),
     brandFolder: $('optBrand').checked, handleJpg: $('optJpg').checked,
-    handleVideo: $('optVideo').checked, staging: $('optStaging').checked};
+    handleVideo: $('optVideo').checked, staging: $('optStaging').checked,
+    dupHash: $('optHashFull').checked ? 'full' : 'sampled'};
   if (!body.source || !body.output) { alert('请先填写源与输出目录'); return; }
   $('prevSummary').textContent = '正在扫描源（读卡较慢，请稍候）...';
+  $('prevWarn').innerHTML = ''; $('prevDupDetails').style.display = 'none';
   $('previewBox').style.display = 'block'; $('previewBox').dataset.ready = '';
   const r = await api('preview', body);
   if (!r.ok) { $('prevSummary').textContent=''; $('prevWarn').textContent = r.error; return; }
-  const d = r.result;
-  $('prevSummary').innerHTML = '<b>' + d.total + '</b> 个文件 / ' + (d.size/1073741824).toFixed(2)
-    + ' GB ｜ 日期 ' + (d.date_range[0]||'?') + ' ~ ' + (d.date_range[1]||'?')
+  const d = r.result, c = d.counts || {};
+  const dupN = (c.dup||0) + (c.dup_unverified||0);
+  DUP = {count: dupN, bytes: (d.dup && d.dup.bytes) || 0, guard: d.dup_guard || '',
+         lastAt: (d.dup && d.dup.last_at) || ''};
+
+  $('prevSummary').innerHTML = '<b>' + d.total + '</b> 个文件 / ' + fs(d.size)
+    + ' ｜ 日期 ' + (d.date_range[0]||'?') + ' ~ ' + (d.date_range[1]||'?')
+    + '<br>新文件 <b>' + (c.new||0) + '</b>'
+    + ' ｜ 已归档 <b>' + dupN + '</b>' + ((c.dup_unverified) ? ('（其中待校验 ' + c.dup_unverified + '）') : '')
+    + ' ｜ 同名冲突 ' + (c.conflict||0)
+    + ' ｜ 无日期 ' + (c.nodate||0)
     + ' ｜ ExifTool: ' + (d.exiftool ? '可用' : '未找到（视频日期会退化）');
+
   let w = '';
-  if (d.bad_count) w += '注意：' + d.bad_count + ' 个文件只能靠文件修改时间推断日期，请核对后再执行。<br>';
-  if (d.raw_skip_hint) w += '提示：' + d.raw_skip_hint + ' 个照片读不到拍摄日期，执行时将被跳过（不拷贝）。<br>';
-  if (d.conflicts) w += '提示：' + d.conflicts + ' 个目标已存在同名文件，将自动追加 _1/_2。<br>';
+  if (dupN) {
+    w += '⚠ 检测到 <b>' + dupN + '</b> 个文件此前已归档'
+       + (DUP.lastAt ? ('（最近 ' + DUP.lastAt.slice(0,16) + '）') : '')
+       + '，约 ' + fs(DUP.bytes) + '，<b>默认跳过以免重复落盘</b>。';
+    if (c.dup_unverified) {
+      w += '<br>其中 ' + c.dup_unverified + ' 个只靠文件名/大小匹配、尚未读内容校验：执行时会逐个比对内容，'
+         + '确认是同一张就跳过，内容不同的会作为新文件归档（不会丢照片）。';
+    }
+    w += '<br>确实需要再处理一遍（例如想重建目录结构）时，请勾选上方「<b>重新处理已归档文件</b>」，届时会二次确认。';
+  }
+  if (c.missing) w += '<br>另有 ' + c.missing + ' 个有归档记录但原归档文件已不在原位，将重新归档。';
+  if (d.volume && d.volume.seen_before) {
+    w += '<br>这张卡 / 这个目录上次处理过：' + (d.volume.last_at || '—') + '（' + (d.volume.last_count||0) + ' 个文件）。';
+  }
+  if (d.bad_count) w += '<br>注意：' + d.bad_count + ' 个文件只能靠文件修改时间推断日期，请核对后再执行。';
+  if (d.raw_skip_hint) w += '<br>提示：' + d.raw_skip_hint + ' 个照片读不到拍摄日期，执行时将被跳过（不拷贝）。';
+  if (c.conflict) w += '<br>提示：' + c.conflict + ' 个目标同名但内容不同，将自动追加 _1/_2（这是真冲突，不是重复归档）。';
   if (d.removable && $('optMode').value === 'move')
-    w += '<b>源为可移动设备，移动模式下归档完成后将清空卡上约 ' + (d.size/1073741824).toFixed(2)
-       + ' GB 文件，此操作不可回滚。</b>';
+    w += '<br><b>源为可移动设备，移动模式下归档完成后将清空卡上约 ' + fs(d.size) + ' 文件，此操作不可回滚。</b>';
   $('prevWarn').innerHTML = w;
+
+  const samples = (d.dup && d.dup.sample) || [];
+  if (samples.length) {
+    $('prevDupBody').innerHTML = samples.map(s => '<tr><td>' + s.src + '</td><td>' + (s.prev_dst || '—')
+      + '</td><td>' + ((s.archived_at || '—').slice(0,16)) + '</td><td>'
+      + (VERDICT_LABEL[s.verdict] || s.verdict || '') + (s.level ? (' / ' + (LEVEL_LABEL[s.level] || s.level)) : '')
+      + '</td></tr>').join('');
+    $('prevDupToggle').textContent = '已归档文件清单（' + dupN + ' 个，显示前 ' + samples.length + ' 个）';
+    $('prevDupDetails').style.display = 'block';
+  } else {
+    $('prevDupDetails').style.display = 'none';
+  }
+
   $('prevBody').innerHTML = (d.sample||[]).map(s => '<tr><td>' + s.src + '</td><td>' + (s.date||'—')
-    + '</td><td class="' + (s.bad?'bad':'') + '">' + s.date_from + '</td><td>' + (s.dst_rel||'') + '</td></tr>').join('');
+    + '</td><td class="' + (s.bad?'bad':'') + '">' + s.date_from + '</td><td>' + (s.dst_rel||'')
+    + '</td><td>' + (VERDICT_LABEL[s.verdict] || s.verdict || '') + '</td></tr>').join('');
   $('prevToggle').textContent = '文件清单（' + d.total + ' 个文件，点击展开/折叠）';
   $('previewBox').dataset.ready = '1'; check();
 };
@@ -423,10 +482,26 @@ $('btnPreview').onclick = async () => {
 $('btnStart').onclick = async () => {
   if ($('optMode').value === 'move' && isRemovable() &&
       !confirm('确认归档后清空源设备上的文件？此操作不可回滚。')) return;
+  const force = $('optForceDup').checked;
+  if (force) {
+    if (!DUP.count) {
+      alert('本次预览没有发现已归档文件，无需勾选「重新处理已归档文件」。');
+      return;
+    }
+    if (!confirm('⚠ 将重新处理 ' + DUP.count + ' 个已归档文件（约 ' + fs(DUP.bytes) + '）。\n'
+                 + '目标目录会保留现有文件，并产生 _1/_2 副本。\n\n确认执行？')) return;
+  } else if (DUP.count > 0) {
+    if (!confirm('将跳过 ' + DUP.count + ' 个已归档文件（约 ' + fs(DUP.bytes) + '），只处理新文件。\n\n继续？')) return;
+  }
   const r = await api('start', {source: $('srcPath').value.trim(), output: $('outPath').value.trim(),
     mode: $('optMode').value, brandFolder: $('optBrand').checked, handleJpg: $('optJpg').checked,
-    handleVideo: $('optVideo').checked, staging: $('optStaging').checked});
-  if (!r.ok) { alert(r.error); return; }
+    handleVideo: $('optVideo').checked, staging: $('optStaging').checked,
+    dupHash: $('optHashFull').checked ? 'full' : 'sampled',
+    dupPolicy: force ? 'force' : 'skip', dupGuard: force ? DUP.guard : ''});
+  if (!r.ok) {
+    alert((r.code === 'need_confirm' ? '需要重新预览确认：\n\n' : '') + (r.error || '启动失败'));
+    return;
+  }
   tid = r.taskId; $('btnStart').disabled = true; $('btnCancel').disabled = false;
   $('statusBox').style.display = 'block'; $('logBox').textContent = '';
   timer = setInterval(poll, 1500); poll();
@@ -439,12 +514,21 @@ async function poll(){
   const pct = s.total ? Math.round(s.current/s.total*100) : 0;
   $('progFill').style.width = pct + '%';
   $('progText').textContent = s.status + '  ' + s.current + '/' + s.total
-    + ' ｜ 成功 ' + s.success + ' 失败 ' + s.failed + ' 跳过 ' + s.skipped;
+    + ' ｜ 成功 ' + s.success + ' 失败 ' + s.failed
+    + ' ｜ 跳过 ' + s.skipped
+    + (s.skipped_dup ? ('（已归档 ' + s.skipped_dup + (s.skipped_nodate ? '、无日期 ' + s.skipped_nodate : '') + '）')
+                     : (s.skipped_nodate ? ('（无日期 ' + s.skipped_nodate + '）') : ''));
   $('logBox').textContent = (s.logs||[]).slice(-80).map(l => '[' + l.t + '] ' + (l.msg || l.dst || l.src)).join('\n');
   $('logBox').scrollTop = $('logBox').scrollHeight;
   if (['done','error','cancelled','rolled_back'].indexOf(s.status) >= 0) {
     clearInterval(timer); $('btnCancel').disabled = true; $('btnStart').disabled = false;
-    if (s.status === 'done') alert('RAW 归档完成：成功 ' + s.success + ' 个');
+    if (s.status === 'done') {
+      let m = 'RAW 归档完成：成功 ' + s.success + ' 个';
+      if (s.skipped_dup) m += '，跳过 ' + s.skipped_dup + ' 个已归档文件';
+      if (s.skipped_nodate) m += '，跳过 ' + s.skipped_nodate + ' 个无日期文件';
+      if (s.failed) m += '，失败 ' + s.failed + ' 个';
+      alert(m + '。');
+    }
   }
 }
 
