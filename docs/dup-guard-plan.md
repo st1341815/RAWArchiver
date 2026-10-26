@@ -362,3 +362,26 @@ SELFTEST_DUPGUARD_OK
 > 把"处理过"变成**一份持久台账 + 三级证据**，默认跳过已归档、跳过即写日志留证；
 > 要重处理必须在 UI 勾选并在服务端出示 guard，CLI 必须显式 `--confirm-dups N`；
 > 台账丢了也不怕——目标文件存在性 + 内容复核是最后一道网，且历史报告能一键回填。
+
+
+---
+
+## 12. 部署记录（2026-10-26，.9 设备，方案 B 就地覆盖）
+
+- 上传 4 个文件到 `/vol2/@appcenter/rawarchiver/`：`scripts/raw_archiver.py`(57504) / `server.py`(16537) /
+  `api/index.cgi`(9539) / `www/index.html`(29607)，逐个 `file chown --uid 978`，再 `app restart rawarchiver`。
+- **应用中心版本标签仍为 1.0.18**（方案 B 不重装，用户已确认接受）；代码实际为 1.0.19。
+- 设备内验证（临时容器 `johngong/calibre-web` + 直连 gateway unix socket，结果用「文件名即数据」回读）：
+
+  ```
+  R1_info_1.0.19_fnos-gateway          # 新代码已生效
+  R2_prev_new2_dup0_conf0              # 首次预览：2 个新文件
+  R3_start_True_skip / R4_done_succ2   # 归档成功
+  R5_prev2_dup2_unver0_volTrue_guardTrue   # 再预览：2 个判为已归档 + 卷指纹 + 签发 guard
+  R6_force_noguard_False_need_confirm  # 无凭据强制 → 被拒（服务端硬门）
+  R7_force_ok_True / R8_done_succ2 / R9_copies_2_of_4  # 带凭据强制 → 生成 _1 副本
+  ```
+
+- 清理：测试容器、`/vol2/@appdata/rawarchiver/dgtest`、`/vol1/1000/octop_tmp`、测试写入的
+  `ledger.sqlite3*` 全部删除（台账从空开始，首次真实预览会用 `/vol1/1000/Photos/log/_report_*.json` 自动回填）。
+- 回滚（如需）：把 git `8526cee` 版的同样 4 个文件按同法覆盖 + restart 即恢复 1.0.18 行为。
