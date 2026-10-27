@@ -30,6 +30,17 @@
       "is_docker": false,
       "service_port": "",
       "releases": {
+        "1.0.22": {
+          "changelog": "修复「内置 ExifTool 其实跑不起来」：随包补齐 Image/ExifTool 模块树（v12.92，含 File::RandomAccess）并用 perl -I 指向它，与宿主 perl 模块解耦；安装回调增加 ExifTool 自检。同期合入 1.0.21 的安全与稳健性改动：前端文件名统一转义（防注入）、任务ID 白名单（防 ../ 穿越）、网关多线程（预览不再卡死界面）、核心报错原样透传、开始前校验源/输出、状态写入节流、未装 exifread/Pillow 时照片批量解析（仍严格跳过无 EXIF 照片）、清源改为「目标存在+大小一致」校验、台账 days 范围校验。注意：包体积因内置 ExifTool 增至约 4.76 MB。",
+          "updated_at": "2026-10-27T22:57:30+08:00",
+          "packages": {
+            "all": {
+              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v1.0.22/rawarchiver-1.0.22.fpk",
+              "sha256": "e5e27da978b8323485a2ca48b05d7c200c78b463452b8cb28fbac62ba8d8a96c",
+              "size": 4990323
+            }
+          }
+        },
         "1.0.20": {
           "changelog": "① 重复归档防护：新增处理台账，跨任务记住「哪些文件归档过」；预览显示「已归档 N 个」并默认跳过，要重处理需勾选 + 二次确认（含服务端确认凭据）；跨输出目录视为新文件；内容复核默认头尾各 256KB，可切全文件哈希；回滚联动失效；台账丢失由历史报告自动回填。② 修复：源目录超过 500 个文件时，预览总数/已归档数被错误截断成 500（归档本身不受限）。③ 提速：视频拍摄日期改为批量 exiftool 解析，600 个视频预览 31s → 1s、归档约 5s。",
           "updated_at": "2026-10-26T21:20:00+08:00",
