@@ -37,7 +37,7 @@ footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;paddi
 </style>
 </head>
 <body>
-<h1>RAW 归档 <small>v1.0.20</small></h1>
+<h1>RAW 归档 <small>v1.0.21</small></h1>
 <div class="intro">
   按 <b>EXIF 拍摄日期</b>把相机照片 / 视频整理归档到 NAS，源目录只读。
   <b>已支持相机品牌</b>：佳能 Canon · 尼康 Nikon · 索尼 Sony · 富士 Fujifilm · 哈苏 Hasselblad · 徕卡 Leica 等；
@@ -195,6 +195,11 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
 const withTimeout = (p, ms) => Promise.race([
   p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
 ]);
+
+// HTML 转义：预览清单/提示条里的文件名与路径来自「被扫描的源目录」（SD 卡上的文件名可被构造，
+// 如 <img src=x onerror=...>.jpg）。这几处需要 innerHTML 渲染 <b>/<br>，所以插值一律先 esc()。
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // 页面加载即初始化 SDK（单例 + 硬超时），把 penpal 握手提前到页面加载（对齐 file.dedupe）
 // fnnas.js 用动态 import（绝对路径）：macOS 打包里没有这个资源，静态 import 404 会让整页脚本失效。
@@ -430,43 +435,43 @@ $('btnPreview').onclick = async () => {
   DUP = {count: dupN, bytes: (d.dup && d.dup.bytes) || 0, guard: d.dup_guard || '',
          lastAt: (d.dup && d.dup.last_at) || ''};
 
-  $('prevSummary').innerHTML = '<b>' + d.total + '</b> 个文件 / ' + fs(d.size)
-    + ' ｜ 日期 ' + (d.date_range[0]||'?') + ' ~ ' + (d.date_range[1]||'?')
-    + '<br>新文件 <b>' + (c.new||0) + '</b>'
-    + ' ｜ 已归档 <b>' + dupN + '</b>' + ((c.dup_unverified) ? ('（其中待校验 ' + c.dup_unverified + '）') : '')
-    + ' ｜ 同名冲突 ' + (c.conflict||0)
-    + ' ｜ 无日期 ' + (c.nodate||0)
+  $('prevSummary').innerHTML = '<b>' + esc(d.total) + '</b> 个文件 / ' + fs(d.size)
+    + ' ｜ 日期 ' + esc(d.date_range[0]||'?') + ' ~ ' + esc(d.date_range[1]||'?')
+    + '<br>新文件 <b>' + esc(c.new||0) + '</b>'
+    + ' ｜ 已归档 <b>' + esc(dupN) + '</b>' + ((c.dup_unverified) ? ('（其中待校验 ' + esc(c.dup_unverified) + '）') : '')
+    + ' ｜ 同名冲突 ' + esc(c.conflict||0)
+    + ' ｜ 无日期 ' + esc(c.nodate||0)
     + ' ｜ ExifTool: ' + (d.exiftool ? '可用' : '未找到（视频日期会退化）');
 
   let w = '';
   if (dupN) {
-    w += '⚠ 检测到 <b>' + dupN + '</b> 个文件此前已归档'
-       + (DUP.lastAt ? ('（最近 ' + DUP.lastAt.slice(0,16) + '）') : '')
+    w += '⚠ 检测到 <b>' + esc(dupN) + '</b> 个文件此前已归档'
+       + (DUP.lastAt ? ('（最近 ' + esc(DUP.lastAt.slice(0,16)) + '）') : '')
        + '，约 ' + fs(DUP.bytes) + '，<b>默认跳过以免重复落盘</b>。';
     if (c.dup_unverified) {
-      w += '<br>其中 ' + c.dup_unverified + ' 个只靠文件名/大小匹配、尚未读内容校验：执行时会逐个比对内容，'
+      w += '<br>其中 ' + esc(c.dup_unverified) + ' 个只靠文件名/大小匹配、尚未读内容校验：执行时会逐个比对内容，'
          + '确认是同一张就跳过，内容不同的会作为新文件归档（不会丢照片）。';
     }
     w += '<br>确实需要再处理一遍（例如想重建目录结构）时，请勾选上方「<b>重新处理已归档文件</b>」，届时会二次确认。';
   }
-  if (c.missing) w += '<br>另有 ' + c.missing + ' 个有归档记录但原归档文件已不在原位，将重新归档。';
+  if (c.missing) w += '<br>另有 ' + esc(c.missing) + ' 个有归档记录但原归档文件已不在原位，将重新归档。';
   if (d.volume && d.volume.seen_before) {
-    w += '<br>这张卡 / 这个目录上次处理过：' + (d.volume.last_at || '—') + '（' + (d.volume.last_count||0) + ' 个文件）。';
+    w += '<br>这张卡 / 这个目录上次处理过：' + esc(d.volume.last_at || '—') + '（' + esc(d.volume.last_count||0) + ' 个文件）。';
   }
-  if (d.sample_limited) w += '<br>清单只列前 ' + (d.sample_shown || 500)
-    + ' 条（文件较多），<b>统计与去重按全部 ' + d.total + ' 个文件计算</b>，不受此限制。';
-  if (d.bad_count) w += '<br>注意：' + d.bad_count + ' 个文件只能靠文件修改时间推断日期，请核对后再执行。';
-  if (d.raw_skip_hint) w += '<br>提示：' + d.raw_skip_hint + ' 个照片读不到拍摄日期，执行时将被跳过（不拷贝）。';
-  if (c.conflict) w += '<br>提示：' + c.conflict + ' 个目标同名但内容不同，将自动追加 _1/_2（这是真冲突，不是重复归档）。';
+  if (d.sample_limited) w += '<br>清单只列前 ' + esc(d.sample_shown || 500)
+    + ' 条（文件较多），<b>统计与去重按全部 ' + esc(d.total) + ' 个文件计算</b>，不受此限制。';
+  if (d.bad_count) w += '<br>注意：' + esc(d.bad_count) + ' 个文件只能靠文件修改时间推断日期，请核对后再执行。';
+  if (d.raw_skip_hint) w += '<br>提示：' + esc(d.raw_skip_hint) + ' 个照片读不到拍摄日期，执行时将被跳过（不拷贝）。';
+  if (c.conflict) w += '<br>提示：' + esc(c.conflict) + ' 个目标同名但内容不同，将自动追加 _1/_2（这是真冲突，不是重复归档）。';
   if (d.removable && $('optMode').value === 'move')
     w += '<br><b>源为可移动设备，移动模式下归档完成后将清空卡上约 ' + fs(d.size) + ' 文件，此操作不可回滚。</b>';
   $('prevWarn').innerHTML = w;
 
   const samples = (d.dup && d.dup.sample) || [];
   if (samples.length) {
-    $('prevDupBody').innerHTML = samples.map(s => '<tr><td>' + s.src + '</td><td>' + (s.prev_dst || '—')
-      + '</td><td>' + ((s.archived_at || '—').slice(0,16)) + '</td><td>'
-      + (VERDICT_LABEL[s.verdict] || s.verdict || '') + (s.level ? (' / ' + (LEVEL_LABEL[s.level] || s.level)) : '')
+    $('prevDupBody').innerHTML = samples.map(s => '<tr><td>' + esc(s.src) + '</td><td>' + esc(s.prev_dst || '—')
+      + '</td><td>' + esc((s.archived_at || '—').slice(0,16)) + '</td><td>'
+      + esc(VERDICT_LABEL[s.verdict] || s.verdict || '') + (s.level ? (' / ' + esc(LEVEL_LABEL[s.level] || s.level)) : '')
       + '</td></tr>').join('');
     $('prevDupToggle').textContent = '已归档文件清单（' + dupN + ' 个，显示前 ' + samples.length + ' 个）';
     $('prevDupDetails').style.display = 'block';
@@ -474,9 +479,9 @@ $('btnPreview').onclick = async () => {
     $('prevDupDetails').style.display = 'none';
   }
 
-  $('prevBody').innerHTML = (d.sample||[]).map(s => '<tr><td>' + s.src + '</td><td>' + (s.date||'—')
-    + '</td><td class="' + (s.bad?'bad':'') + '">' + s.date_from + '</td><td>' + (s.dst_rel||'')
-    + '</td><td>' + (VERDICT_LABEL[s.verdict] || s.verdict || '') + '</td></tr>').join('');
+  $('prevBody').innerHTML = (d.sample||[]).map(s => '<tr><td>' + esc(s.src) + '</td><td>' + esc(s.date||'—')
+    + '</td><td class="' + (s.bad?'bad':'') + '">' + esc(s.date_from) + '</td><td>' + esc(s.dst_rel||'')
+    + '</td><td>' + esc(VERDICT_LABEL[s.verdict] || s.verdict || '') + '</td></tr>').join('');
   $('prevToggle').textContent = d.sample_limited
     ? ('文件清单（共 ' + d.total + ' 个文件，此处只列前 ' + (d.sample_shown || (d.sample||[]).length)
        + ' 个，点击展开/折叠）')
@@ -513,7 +518,7 @@ $('btnStart').onclick = async () => {
 };
 
 async function poll(){
-  const r = await api('status', {id: tid, output: $('outPath').value.trim()});
+  const r = await api('status', {taskId: tid, output: $('outPath').value.trim()});
   if (!r.ok) return;
   const s = r.state;
   const pct = s.total ? Math.round(s.current/s.total*100) : 0;

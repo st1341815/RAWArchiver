@@ -46,12 +46,44 @@ def pybin():
     return sys.executable or "python3"
 
 
+class CoreError(Exception):
+    """核心脚本以非 0 退出时抛出，message 为它 stderr 里的真实原因。"""
+
+
+def _core_error(r):
+    """从核心脚本 stderr 里挑出最有信息量的一行（优先 JSON 的 error 字段）。"""
+    lines = [x.strip() for x in (r.stderr or "").strip().splitlines() if x.strip()]
+    for ln in reversed(lines):
+        if ln.startswith("{"):
+            try:
+                o = json.loads(ln)
+                if isinstance(o, dict) and o.get("error"):
+                    return str(o["error"])
+            except Exception:
+                pass
+        if ln.startswith("["):
+            return ln.split("] ", 1)[-1]
+    return lines[-1] if lines else "核心脚本执行失败（无 stderr 输出）"
+
+
 def call(*args, timeout=1800):
     env = dict(os.environ)
     env.setdefault("PYTHONIOENCODING", "utf-8")
-    return subprocess.check_output(
-        [pybin(), "-X", "utf8", SCRIPT, *[str(a) for a in args]],
-        text=True, timeout=timeout, env=env, cwd=APP_DEST)
+    cmd = [pybin(), "-X", "utf8", SCRIPT, *[str(a) for a in args]]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                       env=env, cwd=APP_DEST)
+    if r.returncode != 0:
+        raise CoreError(_core_error(r))
+    return r.stdout
+
+
+def _tid(b):
+    """统一取任务ID（兼容 status 历史上的 id 字段）。"""
+    return b.get("taskId") or b.get("id") or ""
+
+
+def _clean_tid(b):
+    return core.safe_task_id(_tid(b))
 
 
 def emit(obj):
@@ -98,9 +130,12 @@ def dup_opts(b):
 def list_devices():
     out = []
 
-    def count_jpg(root):
+    ARCHIVE_EXTS = core.ALL_EXTS   # 单一真源，别再本地维护一份（曾漂移成只数 .JPG/.jpg，漏 .jpeg）
+
+    def count_files(root):
         try:
-            return sum(1 for _ in Path(root).rglob("*.JPG")) + sum(1 for _ in Path(root).rglob("*.jpg"))
+            return sum(1 for _ in Path(root).rglob("*")
+                       if _.is_file() and _.suffix.lower() in ARCHIVE_EXTS)
         except Exception:
             return 0
 
@@ -108,7 +143,7 @@ def list_devices():
         try:
             for d in sorted(Path("/").glob(pat)):
                 if d.is_dir():
-                    out.append({"path": str(d), "label": d.name, "files": count_jpg(d)})
+                    out.append({"path": str(d), "label": d.name, "files": count_files(d)})
         except Exception:
             pass
     return out
@@ -159,7 +194,7 @@ def main():
     out = (b.get("output") or "").strip()
 
     if act == "info":
-        emit({"ok": True, "app": "RAW 归档", "version": "1.0.20", "mode": "fnos-cgi",
+        emit({"ok": True, "app": "RAW 归档", "version": "1.0.21", "mode": "fnos-cgi",
               "script": SCRIPT, "python": pybin()})
     elif act == "doctor":
         emit({"ok": True, "result": json.loads(call("--doctor"))})
@@ -191,20 +226,47 @@ def main():
                 b.get("dupGuard"), b["source"], out, dup_opts(b))[0]:
             _ok, _err = core.check_guard(b.get("dupGuard"), b["source"], out, dup_opts(b))
             emit({"ok": False, "code": "need_confirm", "error": _err})
+        elif core.path_inside(out, b["source"]) or core.path_inside(b["source"], out):
+            emit({"ok": False, "error": "源目录与输出目录不能互相包含（输出目录不能位于源目录内，反之亦然）"})
+        elif not os.access(b["source"], os.R_OK | os.X_OK):
+            emit({"ok": False, "error": "无法读取源目录（没有访问权限）: %s" % b["source"]})
         else:
-            tid = b.get("taskId") or "%s_%d" % (time.strftime("%Y%m%d_%H%M%S"), random.randint(1000, 9999))
+            try:
+                Path(out).mkdir(parents=True, exist_ok=True)
+                probe = Path(out) / ".write_test"
+                probe.write_text("", encoding="utf-8")
+                probe.unlink()
+            except Exception as e:
+                emit({"ok": False, "error": "输出目录不可写: %s" % e})
+                return
+            given = b.get("taskId")
+            tid = core.safe_task_id(given) if given else "%s_%d" % (
+                time.strftime("%Y%m%d_%H%M%S"), random.randint(1000, 9999))
+            if not tid:
+                emit({"ok": False, "error": "非法 taskId: %r" % (given,)})
+                return
             args = [b["source"], "--output", out, "--mode", b.get("mode", "copy"),
                     "--task-id", tid, *optargs(b)]
             if (b.get("dupPolicy") or "skip") == "force":
                 args += ["--dup-policy", "force", "--dup-guard", str(b.get("dupGuard") or "")]
             lf_path = core.log_path(out, tid)
             Path(lf_path).parent.mkdir(parents=True, exist_ok=True)
-            lf = open(lf_path, "a", encoding="utf-8")
-            subprocess.Popen([pybin(), "-X", "utf8", SCRIPT, *[str(a) for a in args]],
-                             stdout=lf, stderr=subprocess.STDOUT, cwd=APP_DEST)
-            emit({"ok": True, "taskId": tid})
+            with open(lf_path, "a", encoding="utf-8") as lf:
+                proc = subprocess.Popen([pybin(), "-X", "utf8", SCRIPT, *[str(a) for a in args]],
+                                        stdout=lf, stderr=subprocess.STDOUT, cwd=APP_DEST)
+            time.sleep(0.4)
+            rc = proc.poll()
+            if rc is not None and rc != 0:
+                emit({"ok": False, "taskId": tid,
+                      "error": "任务启动失败（详见 %s）" % lf_path})
+            else:
+                emit({"ok": True, "taskId": tid})
     elif act == "status":
-        p = Path(core.task_dir(b.get("id", ""))) / "state.json"
+        _t = _clean_tid(b)
+        if not _t:
+            emit({"ok": False, "error": "非法 taskId: %r" % (_tid(b),)})
+            return
+        p = Path(core.task_dir(_t)) / "state.json"
         if not p.exists():
             emit({"ok": False, "error": "任务不存在"})
         else:
@@ -214,14 +276,24 @@ def main():
             st.pop("to_delete", None)
             emit({"ok": True, "state": st})
     elif act == "cancel":
-        d = Path(core.task_dir(b.get("taskId", "")))
+        _t = _clean_tid(b)
+        if not _t:
+            emit({"ok": False, "error": "非法 taskId: %r" % (_tid(b),)})
+            return
+        d = Path(core.task_dir(_t))
         if not d.is_dir():
             emit({"ok": False, "error": "任务不存在"})
         else:
             (d / "cancel").write_text("1", encoding="utf-8")
             emit({"ok": True})
     elif act == "cleanup":
-        emit({"ok": True, **json.loads(call("--output", out, "--task-id", b.get("taskId", ""), "--cleanup"))})
+        _t = _clean_tid(b)
+        if not _t:
+            emit({"ok": False, "error": "非法 taskId: %r" % (_tid(b),)})
+            return
+        _r = json.loads(call("--output", out, "--task-id", _t, "--cleanup"))
+        _r.setdefault("ok", True)      # 保留核心脚本的 ok=false（失败别显示成成功）
+        emit(_r)
     elif act == "ledger":
         op = b.get("op") or "stats"
         if op == "stats":
@@ -238,14 +310,34 @@ def main():
                     conn.close()
                 emit({"ok": True, "added": n, "output": out})
         elif op == "prune":
-            emit(core.ledger_prune(out or None, int(b.get("days") or 180)))
+            try:
+                _days = int(b.get("days") or 180)
+            except (TypeError, ValueError):
+                emit({"ok": False, "error": "days 必须为整数"})
+                return
+            if _days < 1 or _days > 3650:
+                emit({"ok": False, "error": "days 需在 1~3650 之间"})
+                return
+            emit(core.ledger_prune(out or None, _days))
         else:
             emit({"ok": False, "error": "未知 op: %s" % op})
     elif act == "rollback":
-        emit({"ok": True, **json.loads(call("--output", out, "--task-id", b.get("taskId", ""), "--rollback"))})
+        _t = _clean_tid(b)
+        if not _t:
+            emit({"ok": False, "error": "非法 taskId: %r" % (_tid(b),)})
+            return
+        _r = json.loads(call("--output", out, "--task-id", _t, "--rollback"))
+        _r.setdefault("ok", True)
+        emit(_r)
     else:
         emit({"ok": False, "error": "未知动作: %s" % act})
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except CoreError as e:
+        # 核心脚本的真实报错（路径/权限/凭据）原样回给前端，而不是抛 traceback
+        emit({"ok": False, "error": str(e)})
+    except Exception as e:
+        emit({"ok": False, "error": str(e)})

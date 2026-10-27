@@ -26,6 +26,10 @@ import raw_archiver as core  # noqa: E402
 
 FIXED_DT = datetime(2026, 1, 1, 12, 0, 0)
 core.resolve_date = lambda p: (FIXED_DT, 'exif')      # 测试不依赖真实 EXIF
+# v1.0.21 起：exifread/Pillow 都不可用时，照片会改走 exiftool 批量（不经过 resolve_date）。
+# 本自检用「没有 EXIF 的假图 + 打桩的 resolve_date」验证判重口径，所以强制走纯 Python 逐文件路径，
+# 否则假图会被批量解析判成「无日期」而全部跳过，测不到判重逻辑。
+core._PY_FAST = True
 
 ok_n = 0
 

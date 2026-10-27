@@ -36,7 +36,7 @@ except Exception:
 APP_NAME = 'RAW 归档'
 APP_DIR  = '.rawarchiver'          # 状态目录名（落在应用运行的主目录下，不写用户输出目录）
 LOG_DIR  = 'log'                   # 输出目录下存放运行日志与报告的文件夹
-APP_VER  = '1.0.20'
+APP_VER  = '1.0.21'
 
 RAW_EXTS = {'.nef','.nrw','.cr2','.cr3','.crw','.arw','.srf','.sr2','.raf','.orf','.dng','.pef','.rw2'}
 JPG_EXTS = {'.jpg','.jpeg'}
@@ -62,12 +62,13 @@ BRAND_MAP = {
 def now():
     return time.time()
 
-def atomic_write(path, obj):
+def atomic_write(path, obj, indent=2):
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix('.tmp.%d' % (time.time() * 1e6 % 1e6))
     with open(tmp, 'w', encoding='utf-8') as f:
-        json.dump(obj, f, ensure_ascii=False, indent=2)
+        # indent=None 用于任务态（机器读、写得最频繁）：体积与序列化开销各降约 1/3
+        json.dump(obj, f, ensure_ascii=False, indent=indent)
         f.flush()
         os.fsync(f.fileno())
     os.replace(tmp, p)
@@ -263,22 +264,35 @@ _ET_DATE_TAGS = ['-CreateDate', '-DateTimeOriginal', '-MediaCreateDate',
 _ET_DATE_KEYS = ('ExifIFD:CreateDate', 'ExifIFD:DateTimeOriginal',
                  'QuickTime:CreateDate', 'QuickTime:MediaCreateDate', 'System:FileModifyDate')
 
+# 照片批量专用标签集：**故意不含 -FileModifyDate**。
+# 红线：照片无 EXIF 一律跳过，绝不用文件修改时间兜底；视频才允许 FileModifyDate。
+# 批量路径若复用上面那套标签，无 EXIF 的照片会被 System:FileModifyDate 兜底成"拍摄日期"，
+# 从而把无日期的照片错误归档 —— 所以照片必须用这一份。
+_ET_PHOTO_DATE_TAGS = ['-CreateDate', '-DateTimeOriginal', '-MediaCreateDate', '-TrackCreateDate']
 
-def _et_batch_info(paths, want_make=False, chunk=100):
+# 纯 Python 解析是否可用（exifread / Pillow 任一即可）。都不可用时照片改走 exiftool 批量，
+# 避免「每张照片起一个 perl 进程」——那是 v1.0.20 声称修掉、但只修了视频的慢路径。
+_PY_FAST = bool(exifread or Image)
+
+
+def _et_batch_info(paths, want_make=False, chunk=100, tags=None):
     """一次 exiftool 调用解析一批文件 → ({abs_path: {'dt','tag','make'}}, ok)。
 
-    单个 test.exe 进程 vs 每个文件一个 perl 进程：1000 个视频从 ~60s 降到 ~1s。
+    单个 exiftool 进程 vs 每个文件一个 perl 进程：1000 个视频从 ~60s 降到 ~1s。
+    tags：覆盖默认标签集（照片批量必须传 _ET_PHOTO_DATE_TAGS，见上）。
     ok=False 表示 exiftool 不可用或调用失败，调用方应回落到逐文件 resolve_date。
     """
     info, ok = {}, False
     binp = _exiftool_bin()
     if not binp or not paths:
         return info, False
-    tags = list(_ET_DATE_TAGS) + (['-Make'] if want_make else [])
+    use_tags = list(tags) if tags else list(_ET_DATE_TAGS)
+    if want_make:
+        use_tags.append('-Make')
     for i in range(0, len(paths), chunk):
         part = [str(p) for p in paths[i:i + chunk]]
         try:
-            cmd = _et_run_prefix(binp) + ['-j', '-G1', '-n', '-m'] + tags + part
+            cmd = _et_run_prefix(binp) + ['-j', '-G1', '-n', '-m'] + use_tags + part
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
             if r.returncode != 0 or not r.stdout.strip():
                 continue
@@ -309,19 +323,33 @@ def resolve_dates(paths):
     """批量解析拍摄时间 → {path: (datetime|None, tag)}。
 
     视频：一次 exiftool 批量调用（每 100 个一批）；批量拿不到就按「视频用文件时间兜底」处理。
-    图片：逐文件走 exifread / Pillow（纯 Python，单张几毫秒），只有它们都读不到才回落 exiftool。
+    图片：优先逐文件走 exifread / Pillow（纯 Python，单张几毫秒、零进程开销）；
+          这两个可选依赖**都不可用**时，图片也走 exiftool 批量（用 _ET_PHOTO_DATE_TAGS，
+          不含 FileModifyDate）—— 既避免每图一个进程，又保证「照片无 EXIF ⇒ unknown ⇒ 跳过」。
     """
     res = {}
     vids = [p for p in paths if os.path.splitext(p)[1].lower() in VID_EXTS]
+    vid_set = set(vids)
+    photos = [p for p in paths if p not in vid_set]
     info, ok = _et_batch_info(vids) if vids else ({}, False)
     for p in vids:
         it = info.get(os.path.abspath(p))
         if it and it.get('dt'):
             res[p] = (it['dt'], it['tag'])
+
+    p_batched = False
+    if photos and not _PY_FAST:
+        pinfo, p_ok = _et_batch_info(photos, tags=_ET_PHOTO_DATE_TAGS)
+        for p in photos:
+            it = pinfo.get(os.path.abspath(p))
+            if it and it.get('dt'):
+                res[p] = (it['dt'], it['tag'])
+        p_batched = p_ok
+
     for p in paths:
         if p in res:
             continue
-        if os.path.splitext(p)[1].lower() in VID_EXTS:
+        if p in vid_set:
             if ok:
                 # 批量已经代表过 exiftool 的结论，不必再单文件重跑
                 try:
@@ -333,6 +361,9 @@ def resolve_dates(paths):
                     res[p] = resolve_date(p)
                 except Exception:
                     res[p] = (None, 'unknown')
+        elif p_batched:
+            # 批量已代表照片的结论（且标签里没有 FileModifyDate）：查不到就是无 EXIF → unknown
+            res[p] = (None, 'unknown')
         else:
             try:
                 res[p] = resolve_date(p)
@@ -595,18 +626,46 @@ def state_root():
         return os.path.join(var, APP_DIR)
     return str(Path(__file__).resolve().parent.parent / APP_DIR)
 
+
+# 任务ID白名单：只允许字母/数字/点/下划线/连字符，1~64 位。
+# 防的是状态目录、「<输出目录>/log/」下的日志与报告被 taskId 穿越（如 ../../..）。
+_TASK_ID_RE = re.compile(r'^[A-Za-z0-9._-]{1,64}$')
+
+
+def safe_task_id(task_id):
+    """清洗任务ID：只允许安全字符，杜绝路径穿越。返回 None 表示非法。
+
+    含路径分隔符的一律**直接判非法**（不做「取 basename 静默改名」）——
+    否则 `../../etc` 会被悄悄改成 `etc`，去操作另一个同名的任务，比报错更危险。
+    """
+    raw = str(task_id or '').strip()
+    if not raw or raw != os.path.basename(raw):
+        return None
+    if not _TASK_ID_RE.match(raw) or not re.search(r'[A-Za-z0-9]', raw):
+        return None          # 纯点号（'.'/'..'）也会被这里挡掉
+    return raw
+
+
+def _require_task_id(task_id):
+    tid = safe_task_id(task_id)
+    if not tid:
+        raise ValueError('非法 taskId: %r' % (task_id,))
+    return tid
+
+
 def task_dir(task_id, output=None):
     """任务状态目录（output 形参仅为兼容旧调用保留，已不再使用）。"""
-    return os.path.join(state_root(), 'tasks', task_id)
+    return os.path.join(state_root(), 'tasks', _require_task_id(task_id))
 
 def log_dir(output):
     return os.path.join(os.path.abspath(output), LOG_DIR)
 
 def log_path(output, task_id):
-    return os.path.join(log_dir(output), 'rawarchiver_%s.log' % task_id)
+    # taskId 也是文件名的一部分，同样必须清洗，否则可以往 <输出目录>/log/ 之外落日志
+    return os.path.join(log_dir(output), 'rawarchiver_%s.log' % _require_task_id(task_id))
 
 def report_path(output, task_id):
-    return os.path.join(log_dir(output), '_report_%s.json' % task_id)
+    return os.path.join(log_dir(output), '_report_%s.json' % _require_task_id(task_id))
 
 def load_state(tid, output=None):
     p = Path(task_dir(tid, output)) / 'state.json'
@@ -1031,10 +1090,15 @@ def ledger_prune(output=None, days=180):
 
 # ---- 内部暂存 ----
 
-def tree_copy(src, dst, log_cb=None):
+def tree_copy(src, dst, opts, log_cb=None):
+    """把源目录顺序复制到暂存盘。
+
+    opts 必须由调用方传入（v1.0.21 修正）：此前硬编码 handle_jpg/handle_video=True，
+    用户取消勾选「处理 JPG」时暂存仍会全量拷贝 JPG，白占应用卷空间、白跑一遍 I/O。
+    """
     os.makedirs(dst, exist_ok=True)
     n, b = 0, 0
-    for fp in scan_images(src, {'handle_jpg': True, 'handle_video': True}):
+    for fp in scan_images(src, opts):
         rel = os.path.relpath(fp, src)
         tp = os.path.join(dst, rel)
         os.makedirs(os.path.dirname(tp), exist_ok=True)
@@ -1047,7 +1111,14 @@ def tree_copy(src, dst, log_cb=None):
 
 # ---- 清源 ----
 
-def do_cleanup(output, task_id, verify_hash=False):
+def do_cleanup(output, task_id):
+    """清源：删掉「已确认归档成功」的源文件。
+
+    删前双重校验：① 源文件大小与记录一致；② **目标文件存在且大小一致**（新记录才有 dst）。
+    宁可少删（keep）也不误删 —— 目标不在/大小不符一律保留源文件。
+    （v1.0.21 起移除了从未生效过的 --verify-hash：md5 从来没被写进记录，那个开关一直是空跑；
+      改用「目标存在 + 大小一致」这项更便宜也更直接的校验。）
+    """
     td = task_dir(task_id, output)
     sp = Path(td) / 'state.json'
     if not sp.exists():
@@ -1066,12 +1137,10 @@ def do_cleanup(output, task_id, verify_hash=False):
             if os.path.getsize(p) != it['size']:
                 kept.append(it['src'])
                 continue
-            if verify_hash and it.get('md5'):
-                h = hashlib.md5()
-                with open(p, 'rb') as f:
-                    for chunk in iter(lambda: f.read(1 << 16), b''):
-                        h.update(chunk)
-                if h.hexdigest() != it['md5']:
+            dst_rel = it.get('dst')
+            if dst_rel:      # 旧任务没有 dst 记录 → 退回「只校验源大小」（保持向后兼容）
+                dp = os.path.join(output, dst_rel)
+                if not os.path.isfile(dp) or os.path.getsize(dp) != it['size']:
                     kept.append(it['src'])
                     continue
             os.unlink(p)
@@ -1145,14 +1214,23 @@ def run_task(source, output, opts, task_id):
               'total': 0, 'current': 0, 'success': 0, 'failed': 0, 'skipped': 0,
               'status': 'pending', 'error': '', 'logs': [], 'done': [], 'to_delete': [],
               'created_at': now(), 'updated_at': now(), 'finished_at': None}
-        atomic_write(sp, st)
+        atomic_write(sp, st, indent=None)
     else:
         st['status'] = 'resuming'
-        atomic_write(sp, st)
+        atomic_write(sp, st, indent=None)
 
-    def save():
-        st['updated_at'] = now()
-        atomic_write(sp, st)
+    # 写盘节流：state.json 里带着随文件数无界增长的 done 列表，每文件全量重写是 O(N²)。
+    # 之前每处理一个文件写两次（每次 json.dump 整个 st + fsync）——1 万文件 ≈ 2 万次写、
+    # 累计写入量 GB 级。现在默认 0.8s 内最多写一次；状态切换/收尾等关键节点用 force=True。
+    _last_save = [0.0]
+
+    def save(force=False):
+        t = now()
+        if not force and t - _last_save[0] < 0.8:
+            return
+        _last_save[0] = t
+        st['updated_at'] = t
+        atomic_write(sp, st, indent=None)
 
     stage = None
     try:
@@ -1161,14 +1239,14 @@ def run_task(source, output, opts, task_id):
             stage = os.path.join(td, 'stage')
             log_msg(st, '[暂存] 开始顺序复制到 NAS ...')
             t0 = now()
-            n, b = tree_copy(src, stage, lambda m: log_msg(st, m))
+            n, b = tree_copy(src, stage, opts, lambda m: log_msg(st, m))
             log_msg(st, '[暂存] 完成 %d 个文件 / %d MB，耗时 %ds' % (n, b >> 20, int(now() - t0)))
             src = stage
 
         log_msg(st, '模式: %s | 源为可移动介质: %s | 暂存: %s | ExifTool: %s'
                 % (mode, removable, bool(stage), et_available()))
         st['status'] = 'running'
-        save()
+        save(force=True)
 
         reserved = set()
         done_key = {(it['src'], it['size']) for it in st.get('done', [])}
@@ -1178,11 +1256,12 @@ def run_task(source, output, opts, task_id):
         st['failed'] = 0
         items = list(scan_images(src, opts))
         st['total'] = len(items)
-        save()
+        save(force=True)
         log_msg(st, '待处理 %d 个文件' % len(items))
 
-        # 批量读取拍摄日期：视频走一次 exiftool（每 100 个一批），图片逐文件（exifread 很快）
-        log_msg(st, '正在读取拍摄日期（%d 个文件，视频批量解析）...' % len(items))
+        # 批量读取拍摄日期：视频走 exiftool 批量（每 100 个一批）；图片优先纯 Python 逐文件，
+        # 可选依赖都缺失时也走批量（见 resolve_dates）
+        log_msg(st, '正在读取拍摄日期（%d 个文件，视频批量 / 照片按依赖情况批量）...' % len(items))
         dates = resolve_dates(items)
         maker_cache = {}
         if opts.get('brand_folder'):
@@ -1272,7 +1351,8 @@ def run_task(source, output, opts, task_id):
                         ent['month_dst'] = os.path.relpath(mdst, output)
                     st['done'].append(ent)
                     if mode == 'move':
-                        st['to_delete'].append({'src': rel, 'size': sz})
+                        # 记下 dst：清源时要「目标存在且大小一致」才删源（防误删）
+                        st['to_delete'].append({'src': rel, 'size': sz, 'dst': ent['dst']})
                     log_file(st, 'OK', rel, dest=ent['dst'])
                     try:
                         ledger_record(conn, os.path.basename(rel), sz, mt,
@@ -1302,6 +1382,8 @@ def run_task(source, output, opts, task_id):
         if mode == 'move' and st['to_delete']:
             # move 模式：归档成功后清空源目录（外接卡或本地目录都处理）。
             # 清源失败不影响归档结果——文件已安全落盘，只是源文件保留（权限不足时会在此告警）。
+            # do_cleanup 是从磁盘读 state.json 的，先把 to_delete 强制刷盘（节流会拦掉最后一次 save）。
+            save(force=True)
             log_msg(st, '[清源] 归档完成，开始清空源目录上对应文件 ...')
             r = do_cleanup(output, task_id)
             if r.get('ok'):
@@ -1328,14 +1410,14 @@ def run_task(source, output, opts, task_id):
         log_msg(st, '完成: 成功 %d / 跳过 %d（已归档 %d、无日期 %d）/ 失败 %d，完成时间 %s'
                 % (st['success'], st['skipped'], st.get('skipped_dup', 0),
                    st.get('skipped_nodate', 0), st['failed'], fin))
-        save()
+        save(force=True)
         write_report(output, task_id, st)
     except Exception as e:
         st['status'] = 'error'
         st['error'] = str(e)
         log_msg(st, '异常: %s' % e)
         st['finished_at'] = now()
-        save()
+        save(force=True)
         raise
     finally:
         if stage and os.path.isdir(stage):
@@ -1371,9 +1453,8 @@ def main():
     ap.add_argument('--preview', action='store_true', help='只预览不写盘，输出 JSON')
     ap.add_argument('--info', action='store_true', help='打印源信息 JSON')
     ap.add_argument('--doctor', action='store_true', help='自检依赖与 ExifTool')
-    ap.add_argument('--cleanup', action='store_true', help='补清源')
+    ap.add_argument('--cleanup', action='store_true', help='补清源（删前校验：源大小 + 目标存在且大小一致）')
     ap.add_argument('--rollback', action='store_true', help='回滚（仅 copy 模式）')
-    ap.add_argument('--verify-hash', action='store_true', help='清源时做 MD5 校验（慢）')
     ap.add_argument('--staging', dest='staging', action='store_true', default=True)
     ap.add_argument('--no-staging', dest='staging', action='store_false')
     ap.add_argument('--brand', dest='brand_folder', action='store_true')
@@ -1433,7 +1514,12 @@ def main():
         if not args.output or not args.task_id:
             print(json.dumps({'ok': False, 'error': '--rollback 需 --output 与 --task-id'}), file=sys.stderr)
             return 1
-        print(json.dumps(do_rollback(args.output, args.task_id), ensure_ascii=False))
+        tid = safe_task_id(args.task_id)
+        if not tid:
+            print(json.dumps({'ok': False, 'error': '非法 taskId: %r' % (args.task_id,)},
+                             ensure_ascii=False), file=sys.stderr)
+            return 1
+        print(json.dumps(do_rollback(args.output, tid), ensure_ascii=False))
         return 0
     if args.preview:
         print(json.dumps(do_preview(args.source, opts, output=args.output), ensure_ascii=False))
@@ -1442,7 +1528,12 @@ def main():
         if not args.output or not args.task_id:
             print(json.dumps({'ok': False, 'error': '--cleanup 需 --output 与 --task-id'}), file=sys.stderr)
             return 1
-        print(json.dumps(do_cleanup(args.output, args.task_id, args.verify_hash), ensure_ascii=False))
+        tid = safe_task_id(args.task_id)
+        if not tid:
+            print(json.dumps({'ok': False, 'error': '非法 taskId: %r' % (args.task_id,)},
+                             ensure_ascii=False), file=sys.stderr)
+            return 1
+        print(json.dumps(do_cleanup(args.output, tid), ensure_ascii=False))
         return 0
     if not args.source:
         print(json.dumps({'ok': False, 'error': '缺少 source'}), file=sys.stderr)
@@ -1466,6 +1557,10 @@ def main():
         return 1
 
     tid = args.task_id or time.strftime('%Y%m%d_%H%M%S') + '_%d' % os.getpid()
+    if not safe_task_id(tid):
+        print(json.dumps({'ok': False, 'error': '非法 taskId: %r' % (tid,)},
+                         ensure_ascii=False), file=sys.stderr)
+        return 2
 
     # 确认门：force 需显式凭据（服务端调用方要求 --require-guard）
     if args.dup_policy == 'force' and args.require_guard:

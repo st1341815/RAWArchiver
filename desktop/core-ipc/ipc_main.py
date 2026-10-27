@@ -197,8 +197,9 @@ def cancel_task(req, core):
 
 
 def cleanup(req, core):
-    return core.do_cleanup(req.get("output", ""), req.get("taskId", ""),
-                           bool(req.get("verifyHash", False)))
+    # v1.0.21 起核心的 do_cleanup 不再接受 verify_hash（那个开关从来没生效过：
+    # md5 从未被写入记录，条件恒假；现改为「目标文件存在且大小一致才删源」的常开校验）。
+    return core.do_cleanup(req.get("output", ""), req.get("taskId", ""))
 
 
 def rollback(req, core):

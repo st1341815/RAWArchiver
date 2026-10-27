@@ -32,6 +32,9 @@ import raw_archiver as core  # noqa: E402
 if os.environ.get('RA_MOCK_FIXED_DATE', '1') == '1':
     from datetime import datetime
     core.resolve_date = lambda p: (datetime(2026, 1, 1, 9, 0, 0), 'exif')
+    # v1.0.21 起：exifread/Pillow 都不可用时照片会改走 exiftool 批量（不经过 resolve_date），
+    # 上面这个桩就失效了。联调要的是「每个文件都有日期」，所以强制走纯 Python 逐文件路径。
+    core._PY_FAST = True
 
 TASKS = {}
 MIME = {'.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8',

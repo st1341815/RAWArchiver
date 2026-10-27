@@ -36,15 +36,10 @@ if [ -n "${idx}" ] && [ "${idx}" != "none" ] && [ -n "${PYB}" ]; then
     echo "可选依赖安装成功：${VAR}/venv" || echo "可选依赖安装失败，运行时将使用随包 ExifTool"
 fi
 
-# 记录已授权目录（CGI 环境可能不带 TRIM_* 变量，落一份到 var）
-: > "${VAR}/authorized_paths"
-for env_name in TRIM_DATA_ACCESSIBLE_PATHS TRIM_DATA_SHARE_PATHS; do
-    val="${!env_name:-}"
-    [ -z "${val}" ] && continue
-    printf '%s\n' "${val}" | tr ':' '\n' | while read -r p; do
-        [ -n "${p}" ] && grep -qxF "${p}" "${VAR}/authorized_paths" 2>/dev/null || printf '%s\n' "${p}" >> "${VAR}/authorized_paths"
-    done
-done
+# 目录访问权限说明（v1.0.21 起不再落 authorized_paths 白名单）：
+# 「应用中心 → 设置 → 授权目录」是 fnOS 系统侧机制（给包用户打 ACL），由系统生效，
+# 应用自己不维护也不读取白名单 —— 原来那段写 ${VAR}/authorized_paths 的代码全仓无人读取，
+# 属于历史遗留死代码（且会把空串写成空行），已删除。
 
 # 主动启动统一网关服务（幂等；即便 fnOS 稍后再调 cmd/main start 也安全）
 MAIN="/var/apps/${APP_NAME}/cmd/main"

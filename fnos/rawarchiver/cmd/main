@@ -58,7 +58,6 @@ case "$ACTION" in
     ;;
   stop)
     if is_running; then
-        local pid
         pid="$(cat "${PID_FILE}" | tr -d '[:space:]')"
         kill "${pid}" 2>/dev/null
         sleep 1

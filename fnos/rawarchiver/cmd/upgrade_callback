@@ -1,6 +1,11 @@
 #!/bin/bash
 # 升级后：刷新可执行权限（依赖与授权目录由 install/config 流程维护）。
+# 与 install_callback 的 chmod 清单保持一致 —— 之前漏了 server.py 与 scripts/*.sh，
+# 升级后网关脚本可能丢执行位（cmd/main start 只会补 server.py，scripts/ 兜不住）。
 DEST="${TRIM_APPDEST:-/var/apps/rawarchiver/target}"
 [ -f "${DEST}/vendor/exiftool/exiftool" ] && chmod +x "${DEST}/vendor/exiftool/exiftool"
-chmod +x "${DEST}/ui/index.cgi" "${DEST}/api/index.cgi" 2>/dev/null || true
+chmod +x "${DEST}/scripts/"*.sh 2>/dev/null || true
+[ -f "${DEST}/ui/index.cgi" ] && chmod +x "${DEST}/ui/index.cgi"
+[ -f "${DEST}/api/index.cgi" ] && chmod +x "${DEST}/api/index.cgi"
+[ -f "${DEST}/server.py" ] && chmod +x "${DEST}/server.py"
 exit 0

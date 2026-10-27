@@ -41,7 +41,58 @@ SOCK_PATH = os.path.join(APP_DEST, "rawarchiver.sock")
 sys.path.insert(0, os.path.join(APP_DEST, "scripts"))
 import raw_archiver as core  # noqa: E402
 
-VERSION = "1.0.20"
+VERSION = "1.0.21"
+
+
+class CoreError(Exception):
+    """核心脚本以非 0 退出时抛出，message 为它 stderr 里的真实原因。"""
+
+    def __init__(self, msg, code=1):
+        super().__init__(msg)
+        self.code = code
+
+
+def _core_error(r):
+    """从核心脚本的 stderr 里挑出最有信息量的一行（优先 JSON 的 error 字段）。
+
+    核心脚本的错误约定是「stderr 输出 {"ok": false, "error": ...} + 退出码 1」。
+    之前用 check_output 只留 stdout，真实原因会被
+    "Command '...' returned non-zero exit status 1." 整个吞掉。
+    """
+    lines = [x.strip() for x in (r.stderr or '').strip().splitlines() if x.strip()]
+    for ln in reversed(lines):
+        if ln.startswith('{'):
+            try:
+                o = json.loads(ln)
+                if isinstance(o, dict) and o.get('error'):
+                    return str(o['error'])
+            except Exception:
+                pass
+        if ln.startswith('['):          # 核心脚本的日志行：[时间] 内容
+            return ln.split('] ', 1)[-1]
+    if lines:
+        return lines[-1]
+    return '核心脚本执行失败（无 stderr 输出）'
+
+
+def _tail_text(path):
+    """取运行日志尾部最有信息量的一行（用于「启动即失败」时回给前端）。"""
+    try:
+        data = Path(path).read_text(encoding='utf-8', errors='replace')
+    except Exception:
+        return ''
+    lines = [x.strip() for x in data.strip().splitlines() if x.strip()]
+    for ln in reversed(lines):
+        if ln.startswith('{'):
+            try:
+                o = json.loads(ln)
+                if isinstance(o, dict) and o.get('error'):
+                    return str(o['error'])
+            except Exception:
+                pass
+        if ln.startswith('['):
+            return ln.split('] ', 1)[-1]
+    return lines[-1][:300] if lines else ''
 
 
 def task_dir(tid):
@@ -78,11 +129,28 @@ def pybin():
 
 
 def call(*args, timeout=1800):
+    """跑一次核心脚本 CLI，返回 stdout。
+
+    非 0 退出时抛 CoreError（携带 stderr 里的真实原因），而不是把原因丢掉。
+    """
     env = dict(os.environ)
     env.setdefault("PYTHONIOENCODING", "utf-8")
-    return subprocess.check_output(
-        [pybin(), "-X", "utf8", SCRIPT, *[str(a) for a in args]],
-        text=True, timeout=timeout, env=env, cwd=APP_DEST)
+    cmd = [pybin(), "-X", "utf8", SCRIPT, *[str(a) for a in args]]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                       env=env, cwd=APP_DEST)
+    if r.returncode != 0:
+        raise CoreError(_core_error(r), r.returncode)
+    return r.stdout
+
+
+def _tid(b):
+    """统一取任务ID（status 历史上用 id、其余用 taskId，这里两个都认）。"""
+    return b.get("taskId") or b.get("id") or ""
+
+
+def _clean_tid(b):
+    """取并清洗任务ID；非法返回 None。"""
+    return core.safe_task_id(_tid(b))
 
 
 def optargs(b):
@@ -116,11 +184,8 @@ def dup_opts(b):
 def list_devices():
     out = []
 
-    # 可归档扩展名（RAW + JPG + 视频），与 raw_archiver.py 的 ALL_EXTS 对齐
-    ARCHIVE_EXTS = {'.jpg', '.jpeg', '.nef', '.nrw', '.cr2', '.cr3', '.crw', '.arw',
-                    '.srf', '.sr2', '.raf', '.orf', '.dng', '.pef', '.rw2',
-                    '.mp4', '.mov', '.mts', '.m2ts', '.avi', '.mkv', '.3gp',
-                    '.mpg', '.mpeg', '.wmv', '.flv', '.m4v', '.ts', '.mod', '.mxf'}
+    # 可归档扩展名 = 核心脚本的 ALL_EXTS 单一真源（不再本地维护一份，避免漂移）
+    ARCHIVE_EXTS = core.ALL_EXTS
 
     def count_files(root):
         try:
@@ -218,6 +283,16 @@ def handle_action(b, q):
         err = check_source_readable(src)
         if err:
             return {"ok": False, "error": err}
+        # 前置校验（与核心脚本 CLI 同口径）：别等子进程起来再失败，前端却显示"已开始"
+        if core.path_inside(out, src) or core.path_inside(src, out):
+            return {"ok": False, "error": "源目录与输出目录不能互相包含（输出目录不能位于源目录内，反之亦然）"}
+        try:
+            Path(out).mkdir(parents=True, exist_ok=True)
+            probe = Path(out) / ".write_test"
+            probe.write_text("", encoding="utf-8")
+            probe.unlink()
+        except Exception as e:
+            return {"ok": False, "error": "输出目录不可写: %s" % e}
         # 确认门：重处理已归档必须先在预览里确认过（凭据由预览签发，30 分钟有效）
         policy = b.get("dupPolicy") or "skip"
         if policy not in ("skip", "force"):
@@ -226,16 +301,29 @@ def handle_action(b, q):
             ok_g, err_g = core.check_guard(b.get("dupGuard"), src, out, dup_opts(b))
             if not ok_g:
                 return {"ok": False, "code": "need_confirm", "error": err_g}
-        tid = b.get("taskId") or "%s_%d" % (time.strftime("%Y%m%d_%H%M%S"), random.randint(1000, 9999))
+        given = b.get("taskId")
+        if given:
+            tid = core.safe_task_id(given)
+            if not tid:
+                return {"ok": False, "error": "非法 taskId: %r" % (given,)}
+        else:
+            tid = "%s_%d" % (time.strftime("%Y%m%d_%H%M%S"), random.randint(1000, 9999))
         args = [src, "--output", out, "--mode", b.get("mode", "copy"),
                 "--task-id", tid, *optargs(b)]
         if policy == "force":
             args += ["--dup-policy", "force", "--dup-guard", str(b.get("dupGuard") or "")]
         lf_path = log_file(out, tid)
         Path(lf_path).parent.mkdir(parents=True, exist_ok=True)
-        lf = open(lf_path, "a", encoding="utf-8")
-        subprocess.Popen([pybin(), "-X", "utf8", SCRIPT, *[str(a) for a in args]],
-                         stdout=lf, stderr=subprocess.STDOUT, cwd=APP_DEST)
+        with open(lf_path, "a", encoding="utf-8") as lf:
+            proc = subprocess.Popen([pybin(), "-X", "utf8", SCRIPT, *[str(a) for a in args]],
+                                    stdout=lf, stderr=subprocess.STDOUT, cwd=APP_DEST)
+        # 抓「起来就失败」的常见情形（凭据/权限/路径）：0.4s 内非 0 退出就直接回报原因
+        time.sleep(0.4)
+        rc = proc.poll()
+        if rc is not None and rc != 0:
+            reason = _tail_text(lf_path)
+            return {"ok": False, "taskId": tid,
+                    "error": "任务启动失败：%s（详见 %s）" % (reason or "见运行日志", lf_path)}
         return {"ok": True, "taskId": tid, "dupPolicy": policy}
     if act == "ledger":
         op = b.get("op") or "stats"
@@ -252,10 +340,19 @@ def handle_action(b, q):
                 conn.close()
             return {"ok": True, "added": n, "output": out}
         if op == "prune":
-            return core.ledger_prune(out or None, int(b.get("days") or 180))
+            try:
+                days = int(b.get("days") or 180)
+            except (TypeError, ValueError):
+                return {"ok": False, "error": "days 必须为整数"}
+            if days < 1 or days > 3650:
+                return {"ok": False, "error": "days 需在 1~3650 之间"}
+            return core.ledger_prune(out or None, days)
         return {"ok": False, "error": "未知 op: %s" % op}
     if act == "status":
-        p = Path(task_dir(b.get("id", ""))) / "state.json"
+        tid = _clean_tid(b)
+        if not tid:
+            return {"ok": False, "error": "非法 taskId: %r" % (_tid(b),)}
+        p = Path(task_dir(tid)) / "state.json"
         if not p.exists():
             return {"ok": False, "error": "任务不存在"}
         st = json.loads(p.read_text(encoding="utf-8"))
@@ -264,18 +361,27 @@ def handle_action(b, q):
         st.pop("to_delete", None)
         return {"ok": True, "state": st}
     if act == "cancel":
-        d = Path(task_dir(b.get("taskId", "")))
+        tid = _clean_tid(b)
+        if not tid:
+            return {"ok": False, "error": "非法 taskId: %r" % (_tid(b),)}
+        d = Path(task_dir(tid))
         if not d.is_dir():
             return {"ok": False, "error": "任务不存在"}
         (d / "cancel").write_text("1", encoding="utf-8")
         return {"ok": True}
     if act == "cleanup":
-        r = json.loads(call("--output", out, "--task-id", b.get("taskId", ""), "--cleanup"))
-        r["ok"] = True
+        tid = _clean_tid(b)
+        if not tid:
+            return {"ok": False, "error": "非法 taskId: %r" % (_tid(b),)}
+        r = json.loads(call("--output", out, "--task-id", tid, "--cleanup"))
+        r.setdefault("ok", True)      # 保留核心脚本的 ok=false（失败别显示成成功）
         return r
     if act == "rollback":
-        r = json.loads(call("--output", out, "--task-id", b.get("taskId", ""), "--rollback"))
-        r["ok"] = True
+        tid = _clean_tid(b)
+        if not tid:
+            return {"ok": False, "error": "非法 taskId: %r" % (_tid(b),)}
+        r = json.loads(call("--output", out, "--task-id", tid, "--rollback"))
+        r.setdefault("ok", True)
         return r
     return {"ok": False, "error": "未知动作: %s" % act}
 
@@ -373,6 +479,9 @@ class Handler(BaseHTTPRequestHandler):
         qd = parse_qs(q)
         try:
             self._send_json(handle_action(b, qd))
+        except CoreError as e:
+            # 核心脚本的真实报错（路径不可写/凭据失效/目录互相包含…）原样回给前端
+            self._send_json({"ok": False, "error": str(e)}, 400)
         except subprocess.TimeoutExpired:
             self._send_json({"ok": False, "error": "操作超时"}, 500)
         except Exception as e:
@@ -410,8 +519,14 @@ class Handler(BaseHTTPRequestHandler):
         self._send_bytes(data, ctype)
 
 
-class UnixHTTPServer(socketserver.UnixStreamServer):
+class UnixHTTPServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    """多线程处理：preview / devices 这类长调用不再把 status 轮询与取消按钮一起卡死。
+
+    之前是单线程 UnixStreamServer，一次 preview（扫整卡 + 解析日期，最长 1800s）
+    会把所有并发请求排在后面 —— 前端每 1.5s 轮询一次 status，全部堵住。
+    """
     allow_reuse_address = True
+    daemon_threads = True
 
     def get_request(self):
         request, client_address = super().get_request()

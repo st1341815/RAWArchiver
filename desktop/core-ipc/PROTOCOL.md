@@ -28,7 +28,7 @@
 | `preview` | `source` `output` `opts` | core `do_preview` 返回值 | 扫描源（同步，GUI 端可等待） |
 | `start` | `source` `output` `opts` `taskId?` | `{"taskId": "..."}` | 启动归档；进度通过事件推送 |
 | `cancel` | `taskId` | `{}` | 写 cancel 文件 |
-| `cleanup` | `taskId` `output` `verifyHash?` | `{"deleted":n,"kept":[],"fail":[]}` | 补清源 |
+| `cleanup` | `taskId` `output` | `{"deleted":n,"kept":[],"fail":[]}` | 补清源 |
 | `rollback` | `taskId` `output` | `{"restored":n,"to":"..."}` | 回滚（仅复制模式） |
 | `shutdown` | — | `{}` | 退出 CLI |
 
@@ -119,7 +119,7 @@
 ```
 
 ```
-→ {"id":5,"cmd":"cleanup","taskId":"20261023_153000_1234","output":"/Users/u/归档","verifyHash":false}
+→ {"id":5,"cmd":"cleanup","taskId":"20261023_153000_1234","output":"/Users/u/归档"}
 ← {"id":5,"ok":true,"result":{"deleted":125,"kept":[],"fail":[]}}
 ```
 

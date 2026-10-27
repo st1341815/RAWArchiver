@@ -1,0 +1,72 @@
+name: test
+
+# fnOS 包的自动化回归：核心脚本自检 + 语法检查 + 打包脚本检查。
+# 之前这些只有人工记得跑（selftest_dupguard.py 32 项断言长期无人自动执行）。
+
+on:
+  push:
+    paths:
+      - 'fnos/**'
+      - 'desktop/core-ipc/**'
+      - '.github/workflows/test.yml'
+  pull_request:
+    paths:
+      - 'fnos/**'
+      - 'desktop/core-ipc/**'
+      - '.github/workflows/test.yml'
+  workflow_dispatch:
+
+jobs:
+  core:
+    name: core selftest / syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 去重自检（32 项断言）
+        # PYTHONPATH= 清空，避免宿主 site-packages 干扰（核心脚本只该用标准库）
+        run: PYTHONPATH= python3 fnos/selftest_dupguard.py
+
+      - name: 语法检查（Python）
+        run: |
+          python3 -m py_compile \
+            fnos/rawarchiver/app/server.py \
+            fnos/rawarchiver/app/scripts/raw_archiver.py
+          python3 -c "import ast,sys; ast.parse(open('fnos/rawarchiver/app/api/index.cgi',encoding='utf-8').read())"
+
+      - name: 语法检查（Shell）
+        run: |
+          bash -n fnos/build.sh
+          for f in fnos/rawarchiver/cmd/*; do bash -n "$f" || { echo "FAIL $f"; exit 1; }; done
+
+      - name: 版本号一致性（5 处必须相同）
+        run: |
+          V=$(awk '/^version[ \t]*=/{print $3; exit}' fnos/rawarchiver/manifest)
+          echo "manifest version = $V"
+          grep -q "VERSION = \"$V\"" fnos/rawarchiver/app/server.py
+          grep -q "'$V'" fnos/rawarchiver/app/scripts/raw_archiver.py
+          grep -q "\"version\": \"$V\"" fnos/rawarchiver/app/api/index.cgi
+          grep -q "v$V" fnos/rawarchiver/app/www/index.html
+          grep -q "$V" README.md
+          echo "OK 五处版本号一致：$V"
+
+  desktop-ipc:
+    name: desktop core-ipc (共用同一份核心脚本)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装可选依赖（exifread / Pillow）
+        run: python3 -m pip install --disable-pip-version-check exifread Pillow
+
+      - name: IPC 端到端
+        # desktop/core-ipc 直接 import fnos 的核心脚本 —— 改核心就必须跑这一套
+        run: PYTHONPATH= python3 desktop/core-ipc/tests/test_ipc.py
