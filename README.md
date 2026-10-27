@@ -144,12 +144,15 @@ desktop/              桌面原生 GUI（macOS SwiftUI / Windows WPF，共享 Py
 > 以下是**固定规范**，每次发版照做，不要再临时决定命名。
 
 1. **版本号同步**：`fnos/rawarchiver/manifest` 的 `version` + `changelog`、`app/server.py` 的 `VERSION`、`app/api/index.cgi` 的 `version`、`app/www/index.html` 的 `<h1><small>vX.Y.Z`、本 README 的「版本」段 —— 一处都不能漏。**内容变了就换版本号**（同一个版本号不允许对应两份不同内容的包）。
-2. **构建**：`cd fnos && bash build.sh` → 产出 `fnos/dist/rawarchiver.fpk`（**仓库内路径固定不带版本号**，`build.sh` 与 `app install-fpk` 都依赖它；构建结束会打印本次应使用的 Release 附件名）。
-3. **Release 附件名固定为** `rawarchiver-<版本>.fpk`（例：`rawarchiver-1.0.16.fpk`）。**不允许**再上传不带版本号的 `rawarchiver.fpk` —— 多版本混在一起，下载下来分不清。
-4. **Release 正文**：写清本次更新内容；引用附件名时必须带版本号（正文里保留 `fnos/dist/rawarchiver.fpk` 这个仓库内路径的写法，别一起改掉）。
-5. **替换 / 改名已有附件时的安全顺序**：`下载旧附件 → 上传新名 → 回读 sha256 校验一致 → 才删旧名`。不要先删后传，否则中途失败 Release 会没有安装包。
-6. **推完自检**：远端 `main` 与本机 `HEAD` 是否同一个 commit（同一个 commit 即整棵树逐字节相同）；Release 附件大小与 `fnos/dist/rawarchiver.fpk` 一致；下载一次比 sha256。
-7. 仓库为 **public**，下载无需登录。
+2. **构建**：`cd fnos && bash build.sh` → 产出 `fnos/dist/rawarchiver.fpk`（**仓库内路径固定不带版本号**，`build.sh` 与 `app install-fpk` 都依赖它；构建结束会打印本次应使用的 **Release 标题**与**附件名**）。
+   > ⚠️ **发版后不要重建**：fpk 内含 tar mtime，重建会改变字节（sha256 变），于是仓库里的 `dist/rawarchiver.fpk` 就和 Release 附件对不上了。需要验证构建输出时，重建后务必 `git checkout -- fnos/dist/rawarchiver.fpk` 还原。
+3. **Release 标题固定为** `RAW 归档 v<版本>`（例：`RAW 归档 v1.0.22`）—— **不要**再写成 `v1.0.22`、`v1.0.22 — 一句话说明`、`RAW 归档 v1.0.20（fnOS 应用包）` 这类各自为政的写法；更新内容放**正文**，不放标题。
+   - 唯一例外：同一版本号下的**平台专属**包（历史遗留的 `macos-*` / `windows-*` tag）用 `RAW 归档 v<版本>（macOS 桌面版）` / `（Windows 桌面版）`，否则列表里会出现多个同名 Release 分不清。
+4. **Release 附件名固定为** `rawarchiver-<版本>.fpk`（例：`rawarchiver-1.0.16.fpk`）。**不允许**再上传不带版本号的 `rawarchiver.fpk` —— 多版本混在一起，下载下来分不清。
+5. **Release 正文**：写清本次更新内容；引用附件名时必须带版本号（正文里保留 `fnos/dist/rawarchiver.fpk` 这个仓库内路径的写法，别一起改掉）。
+6. **替换 / 改名已有附件时的安全顺序**：`下载旧附件 → 上传新名 → 回读 sha256 校验一致 → 才删旧名`。不要先删后传，否则中途失败 Release 会没有安装包。
+7. **推完自检**：远端 `main` 与本机 `HEAD` 是否同一个 commit（同一个 commit 即整棵树逐字节相同）；Release 附件大小与 `fnos/dist/rawarchiver.fpk` 一致；sha256 与 GitHub 资产自带的 `digest` 字段比对。
+8. 仓库为 **public**，下载无需登录。
 
 ## 加入 FnDepot 外部源（可自动更新）
 

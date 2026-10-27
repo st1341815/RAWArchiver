@@ -35,7 +35,8 @@ echo "[4/5] 完成"
 ls -la "dist/$PKG.fpk"
 sha256sum "dist/$PKG.fpk"
 
-# 发版规范：GitHub Release 附件必须带版本号（见 ../README.md「发版规范」）
+# 发版规范：GitHub Release 标题/附件名都必须带版本号（见 ../README.md「发版规范」）
 VER="$(awk '/^version[ \t]*=/{print $3; exit}' "$PKG/manifest")"
-echo "[5/5] Release 附件名（发版时用这个）: rawarchiver-${VER}.fpk"
+echo "[5/5] Release 标题（发版时用这个）: RAW 归档 v${VER}"
+echo "      Release 附件名              : rawarchiver-${VER}.fpk"
 echo "      仓库内构建产物路径保持不变  : dist/$PKG.fpk（build.sh / app install-fpk 依赖）"
