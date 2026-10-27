@@ -36,7 +36,7 @@ except Exception:
 APP_NAME = 'RAW 归档'
 APP_DIR  = '.rawarchiver'          # 状态目录名（落在应用运行的主目录下，不写用户输出目录）
 LOG_DIR  = 'log'                   # 输出目录下存放运行日志与报告的文件夹
-APP_VER  = '1.0.21'
+APP_VER  = '1.0.22'
 
 RAW_EXTS = {'.nef','.nrw','.cr2','.cr3','.crw','.arw','.srf','.sr2','.raf','.orf','.dng','.pef','.rw2'}
 JPG_EXTS = {'.jpg','.jpeg'}
@@ -183,16 +183,31 @@ def _et_candidates():
     cands.append('exiftool')
     return [c for c in cands if c]
 
+def _et_bundle_dir():
+    """随包 exiftool 所在目录（app/vendor/exiftool）。"""
+    return str(Path(__file__).resolve().parent.parent / 'vendor' / 'exiftool')
+
 def _et_run_prefix(binp):
-    """返回调用前缀：.exe 直接执行，perl 脚本走 perl"""
-    s = str(binp).lower()
+    """返回调用前缀：.exe 直接执行，perl 脚本走 perl。
+
+    随包的 exiftool 脚本必须配随包的 lib/（-I）一起用：
+    包里只带脚本、不带 Image/ExifTool/*.pm 时，它只能借宿主已装的 perl 模块才能跑，
+    在没装该模块的机器上会直接 `Can't locate Image/ExifTool.pm` —— 那就是"内置 ExifTool 其实不存在"。
+    v1.0.22 起把 lib/ 一起打包，并用 -I 指向它（只对随包副本生效，避免和系统 exiftool 版本串味）。
+    """
+    b = str(binp)
+    s = b.lower()
     if s.endswith('.exe'):
-        return [str(binp)]
-    if os.path.basename(s) in ('exiftool',) and os.path.exists('/usr/bin/perl'):
-        return ['perl', str(binp)]
-    if os.path.basename(s) in ('exiftool',):
-        return [str(binp)]
-    return [str(binp)]
+        return [b]
+    if os.path.basename(s) == 'exiftool' and os.path.exists('/usr/bin/perl'):
+        bundle = _et_bundle_dir()
+        libdir = os.path.join(bundle, 'lib')
+        if os.path.abspath(os.path.dirname(b)) == os.path.abspath(bundle) and os.path.isdir(libdir):
+            return ['perl', '-I', libdir, b]
+        return ['perl', b]
+    if os.path.basename(s) == 'exiftool':
+        return [b]
+    return [b]
 
 def _exiftool_bin():
     global _ET_BIN

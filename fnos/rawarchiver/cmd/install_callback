@@ -36,6 +36,25 @@ if [ -n "${idx}" ] && [ "${idx}" != "none" ] && [ -n "${PYB}" ]; then
     echo "可选依赖安装成功：${VAR}/venv" || echo "可选依赖安装失败，运行时将使用随包 ExifTool"
 fi
 
+# 随包 ExifTool 自检（v1.0.22 起随包带 lib/，用 -I 指向它）
+# 目的：把「内置 ExifTool 其实跑不起来」变成安装日志里的一句明话，而不是等用户发现"一张都没归档"。
+ET_BIN="${DEST}/vendor/exiftool/exiftool"
+ET_LIB="${DEST}/vendor/exiftool/lib"
+if [ -f "${ET_BIN}" ]; then
+    if [ -d "${ET_LIB}" ]; then
+        ET_VER="$(perl -I "${ET_LIB}" "${ET_BIN}" -ver 2>/dev/null || true)"
+    else
+        ET_VER="$(perl "${ET_BIN}" -ver 2>/dev/null || true)"
+    fi
+    if [ -n "${ET_VER}" ]; then
+        echo "ExifTool 自检通过：v${ET_VER}"
+    else
+        echo "⚠ ExifTool 自检失败：文件在但跑不起来（缺 perl 或 Image::ExifTool 模块）"
+        echo "  影响：没有 exifread/Pillow 时，读不到拍摄日期的照片将被跳过（视频仍可用文件时间兜底）。"
+        echo "  处理：装可选依赖（wizard_pip_index 指向 pip 镜像）或系统装 exiftool。"
+    fi
+fi
+
 # 目录访问权限说明（v1.0.21 起不再落 authorized_paths 白名单）：
 # 「应用中心 → 设置 → 授权目录」是 fnOS 系统侧机制（给包用户打 ACL），由系统生效，
 # 应用自己不维护也不读取白名单 —— 原来那段写 ${VAR}/authorized_paths 的代码全仓无人读取，

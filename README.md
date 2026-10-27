@@ -6,7 +6,7 @@
 > - **Formats**: NEF/NRW/CR2/CR3/CRW/ARW/SRF/SR2/RAF/ORF/RW2/DNG/PEF · JPG/JPEG · MP4/MOV/MTS/M2TS/AVI/MKV/3GP/MPG/MPEG/WMV/FLV/M4V/TS/MOD/MXF
 > - **Brands**: Canon · Nikon · Sony · Fujifilm · Hasselblad · Leica · Olympus · Panasonic · Pentax/Ricoh · Sigma · Phase One · Samsung · Apple · Huawei · Xiaomi · DJI · GoPro
 > - **Safety**: source is **read-only** · **already-archived files are skipped automatically**（重复归档防护）· photos without EXIF date are **skipped** · resumable · optional source cleanup after verified copy · machine-readable JSON report
-> - **维护状态**：**fnOS `.fpk`（v1.0.21）为当前主线**，桌面原生版（macOS/Windows，v1.1.1）随同发布；`RAWArchiver/` 本体（DSM 套件 / 源码包，v1.0.0）**已冻结存档，不再维护、不再发布**
+> - **维护状态**：**fnOS `.fpk`（v1.0.22）为当前主线**，桌面原生版（macOS/Windows，v1.1.1）随同发布；`RAWArchiver/` 本体（DSM 套件 / 源码包，v1.0.0）**已冻结存档，不再维护、不再发布**
 > - **Download**: [Releases](https://github.com/st1341815/RAWArchiver/releases)
 > - **产物按版本线发布**：fnOS 应用包走 `v1.0.x`（如 `v1.0.20`，只含 `.fpk`）；桌面原生版走 `v1.1.x`（如 `v1.1.1`，只含 `.dmg` / `.exe`）。按平台选对应版本下载
 > - **macOS 版**（MacBook / Apple Silicon M 系列，**原生 SwiftUI**）：下载 `RawArchiver-macOS-<版本>-arm64.dmg` → 双击挂载 → 把 `RawArchiver.app` 拖进「应用程序」→ **首次打开右键 → 打开**（未做 Apple 公证）
@@ -185,6 +185,7 @@ desktop/              桌面原生 GUI（macOS SwiftUI / Windows WPF，共享 Py
 
 ## 版本
 
+- `1.0.22`（**修复「内置 ExifTool 其实跑不起来」**：此前 `vendor/exiftool/` 只打进了 `exiftool` 脚本，**没带它依赖的 `Image/ExifTool/*.pm`** —— 实际是靠宿主已装的 perl 模块才跑得起来；在没有该模块的机器上（典型：`wizard_pip_index=none` 的默认安装、没建 venv）会直接 `Can't locate Image/ExifTool.pm`，后果是**所有读不到拍摄日期的照片被跳过**（视频仍可用文件时间兜底）。现随包附带 ExifTool 模块树（`vendor/exiftool/lib/`，v12.92，含 `File::RandomAccess`）并用 `perl -I` 指向它，与宿主模块彻底解耦；安装回调增加 ExifTool 自检，跑不起来时在安装日志里写清后果与处理办法。代价：包体积从约 287 KB 增到约 5 MB。
 - `1.0.21`（**安全与稳健性 11 项**：① 前端预览清单/提示条的文件名统一做 HTML 转义（源目录里构造的文件名不再能注入脚本）；② 任务ID 加白名单校验，状态目录与 `<输出目录>/log/` 的日志/报告不能再被 `../` 穿越；③ 网关改多线程，预览期间进度轮询与「取消」不再被单线程堵死；④ 核心脚本的真实报错（路径/权限/凭据）原样返回前端，不再只剩 `returned non-zero exit status 1`；⑤ 开始前先校验源/输出（互相包含、输出不可写）并抓「起来就失败」，不再出现「显示已开始、实际没有任何进度」；⑥ 状态文件写入节流 + 去掉多余缩进，1 万文件的写放大从约 2 万次全量写降到按时间节流；⑦ 未装 exifread/Pillow 时照片日期改走 exiftool 批量（不再每张照片起进程，照片依然「无 EXIF 跳过」）；⑧ 清源改为「源大小 + 目标存在且大小一致」双重校验，移除从未生效过的 `--verify-hash`；⑨ 内部暂存遵循「处理 JPG/视频」勾选；⑩ 台账清理 `days` 加范围校验（防 `-1` 清空台账）；⑪ 安装/升级回调补执行位、删掉无人读取的 `authorized_paths` 死代码、停止脚本去掉非法 `local`）。
 - `1.0.20`（**修 bug + 提速**：预览的 `limit` 只限制「清单展示条数」，**不再截断统计** —— 之前源目录超过 500 个文件时，界面上的总数/已归档数会被错误地显示成 500；同时把拍摄日期解析改成**批量 exiftool**（视频每 100 个一次调用），600 个视频的预览从 ~31s 降到 ~1s、归档从 ~2min 降到 ~5s）。
 - `1.0.19`（**重复归档防护**：新增处理台账 `$TRIM_PKGVAR/.rawarchiver/ledger.sqlite3`，跨任务/跨天记住「哪些文件归档过」；预览显示「已归档 N 个」并默认跳过，要重处理必须勾选 + 二次确认（GUI 还要求预览签发的 `dupGuard`）；跨输出目录视为新文件；内容复核默认头尾各 256KB，可切全文件哈希；回滚联动失效；台账丢失由历史报告自动回填。自检 `fnos/selftest_dupguard.py` 32 项全过）。
@@ -205,7 +206,7 @@ desktop/              桌面原生 GUI（macOS SwiftUI / Windows WPF，共享 Py
 >
 > | 线 | 核心脚本 | 任务态位置 | 说明 |
 > | --- | --- | --- | --- |
-> | **fnOS 应用包 / 桌面版**（在维护，当前 v1.0.21） | `fnos/rawarchiver/app/scripts/raw_archiver.py` | `$TRIM_PKGVAR/.rawarchiver/`（无该变量时回落应用根目录） | fnOS `.fpk` + macOS/Windows 原生版的**唯一真源**，`desktop/core-ipc` 也调它 |
+> | **fnOS 应用包 / 桌面版**（在维护，当前 v1.0.22） | `fnos/rawarchiver/app/scripts/raw_archiver.py` | `$TRIM_PKGVAR/.rawarchiver/`（无该变量时回落应用根目录） | fnOS `.fpk` + macOS/Windows 原生版的**唯一真源**，`desktop/core-ipc` 也调它 |
 > | **本体**（v1.0.0 存档线，冻结） | `RAWArchiver/scripts/raw_archiver.py` | `<输出目录>/.rawarchiver/`（自包含） | 供 DSM 套件与「源码包」使用；**不跟随** v1.0.14+ 的演进（重复归档防护、批量解析等） |
 >
 > 需要最新能力（重复归档防护 / 批量 EXIF / 500+ 统计修复）时请用 `fnos/` 那份 —— 它只依赖标准库，可直接当 CLI 跑。
