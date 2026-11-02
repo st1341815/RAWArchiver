@@ -21,6 +21,8 @@
 - 品牌表另含：奥林巴斯 Olympus、松下 Panasonic、宾得/理光 Pentax、适马 Sigma、飞思 PhaseOne、三星 Samsung、Apple、华为 Huawei、小米 Xiaomi
 - 未收录的机型也能归档（按拍摄日期分目录），只是「按品牌分层」不会细分品牌
 
+![Project Screenshot](RAWArchiver/ScreenShot_2026-11-02_135644_021.png)
+
 **支持格式**
 
 | 类别 | 扩展名 |
