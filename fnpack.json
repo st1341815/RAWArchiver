@@ -91,8 +91,8 @@
           "packages": {
             "all": {
               "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v1.0.23/rawarchiver-1.0.23.fpk",
-              "sha256": "dcfdf96b277791c20df18f688615bd84431c0b5435a1d79fa296cb0b741eb291",
-              "size": 5005516
+              "sha256": "1e3f70748e60f4ed1c1b96bcc059187744c91a0b859bf4102aed3a1b117edd69",
+              "size": 5005534
             }
           }
         }
