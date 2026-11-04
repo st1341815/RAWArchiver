@@ -1,5 +1,5 @@
 /* ============================================================
-   RAW 归档 · 设计令牌 + 原子类  v1.0.23（UI 重设计方案 §2.8）
+   RAW 归档 · 设计令牌 + 原子类  v1.0.24（UI 重设计方案 §2.8）
    ------------------------------------------------------------
    硬规则（改样式前必读）：
    ① 一个 flex 容器里最多一个「可换行」子项；label/按钮/徽标/
@@ -87,7 +87,7 @@ html,body{margin:0;background:var(--ra-bg);color:var(--ra-ink);
 .dot{width:7px;height:7px;border-radius:99px;background:var(--ra-line-strong);flex:0 0 auto}
 .dot.ok{background:var(--ra-ok)}.dot.warn{background:var(--ra-warn)}
 
-.body{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);display:flex;flex-direction:column;gap:var(--ra-sp-4)}
+.body{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);display:flex;flex-direction:column;gap:var(--ra-sp-3)}
 .spacer{flex:1 1 auto}
 
 /* 吸底主行动栏：整页唯一的实心按钮住在这里。
@@ -235,12 +235,12 @@ table.tbl{width:100%;border-collapse:collapse;table-layout:fixed}
 .devrow .ct{font-size:var(--ra-fs-12);color:var(--ra-ink-2);white-space:nowrap;flex:0 0 auto}
 
 /* ---------- 空状态 ---------- */
-.hero{text-align:center;padding:var(--ra-sp-6) var(--ra-sp-4)}
-.hero h2{margin:14px 0 6px;font-size:var(--ra-fs-20);font-weight:600;line-height:1.35}
-.hero p{margin:0;font-size:var(--ra-fs-14);color:var(--ra-ink-2);line-height:1.7}
-.illus{width:88px;height:88px;margin:0 auto;border-radius:22px;background:var(--ra-brand-soft);
+.hero{text-align:center;padding:var(--ra-sp-4) var(--ra-sp-4)}
+.hero h2{margin:12px 0 4px;font-size:var(--ra-fs-20);font-weight:600;line-height:1.35}
+.hero p{margin:0;font-size:var(--ra-fs-14);color:var(--ra-ink-2);line-height:1.65}
+.illus{width:64px;height:64px;margin:0 auto;border-radius:16px;background:var(--ra-brand-soft);
   display:grid;place-items:center;color:var(--ra-brand-text)}
-.illus svg{width:42px;height:42px}
+.illus svg{width:32px;height:32px}
 
 /* ---------- 结果卡大数字 ---------- */
 .result-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--ra-sp-2)}
@@ -303,3 +303,26 @@ footer{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);color:var(--ra-ink-3
 
 /* 空状态按钮排布 */
 .hero .acts{display:flex;gap:var(--ra-sp-2);justify-content:center;align-items:center;margin-top:var(--ra-sp-4);flex-wrap:wrap}
+
+/* ---------- ③ 选项：两列紧凑（v1.0.24 重排） ---------- */
+#cardOpts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ra-sp-3) var(--ra-sp-4)}
+#cardOpts .card-h{grid-column:1/-1}
+#cardOpts .group{border-top:0;margin-top:0;padding-top:0}
+.chk{padding:3px 0}
+
+/* ---------- 响应式断点（v1.0.24） ---------- */
+@media (max-width:900px){
+  .hdr-in,.body,footer{max-width:100%}
+  .body{padding:var(--ra-sp-3)}
+}
+@media (max-width:640px){
+  #cardOpts{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .stage-row{grid-template-columns:1fr}
+}
+@media (max-height:760px){
+  .hero .illus{display:none}
+  .hero{padding:var(--ra-sp-3) var(--ra-sp-4)}
+  .hero h2{margin-top:0}
+  .hero p{line-height:1.5}
+}
