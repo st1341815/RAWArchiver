@@ -219,11 +219,14 @@ table.tbl{width:100%;border-collapse:collapse;table-layout:fixed}
 /* 复选/单选行（选项区） */
 .chk{display:flex;align-items:center;gap:8px;font-size:var(--ra-fs-14);padding:5px 0;white-space:nowrap;min-width:0}
 .chk input{accent-color:var(--ra-brand);flex:0 0 auto}
-.chk .sub{color:var(--ra-ink-3);font-size:var(--ra-fs-12);white-space:nowrap}
+/* 组内注释：统一集中在组尾，不塞进控件名——.chk 是 nowrap flex，中文注释塞进去手机必溢出 */
+.gnote{margin:6px 0 0;display:flex;flex-direction:column;gap:2px;
+  color:var(--ra-ink-3);font-size:var(--ra-fs-12);line-height:1.55}
+.gnote>span{min-width:0;white-space:normal;overflow-wrap:anywhere}
+.gnote b{font-weight:600;color:var(--ra-ink-2)}
 .group{border-top:1px dashed var(--ra-line);margin-top:var(--ra-sp-3);padding-top:var(--ra-sp-3)}
 .group:first-of-type{border-top:0;margin-top:0;padding-top:0}
 .glabel{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:2px;white-space:nowrap}
-.glabel .sub{font-weight:400;color:var(--ra-ink-3);font-size:var(--ra-fs-12);white-space:nowrap}
 
 /* ---------- 设备识别条 ---------- */
 .devrow{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--ra-line);
@@ -305,7 +308,9 @@ footer{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);color:var(--ra-ink-3
 .hero .acts{display:flex;gap:var(--ra-sp-2);justify-content:center;align-items:center;margin-top:var(--ra-sp-4);flex-wrap:wrap}
 
 /* ---------- ③ 选项：两列紧凑（v1.0.24 重排） ---------- */
-#cardOpts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ra-sp-3) var(--ra-sp-4)}
+/* 显式排除 hidden 态：文件底部虽有 [hidden]{display:none!important} 兜底，
+   这里写成 :not([hidden]) 让意图自明，避免后人给 display 加 !important 时破功。 */
+#cardOpts:not([hidden]){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--ra-sp-3) var(--ra-sp-4)}
 #cardOpts .card-h{grid-column:1/-1}
 #cardOpts .group{border-top:0;margin-top:0;padding-top:0}
 .chk{padding:3px 0}
@@ -316,7 +321,10 @@ footer{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);color:var(--ra-ink-3
   .body{padding:var(--ra-sp-3)}
 }
 @media (max-width:640px){
+  /* 单列后组间靠 gap 分不开，恢复虚线分隔，让 .gnote 注释能看出归属哪一组 */
   #cardOpts{grid-template-columns:1fr}
+  #cardOpts .group{border-top:1px dashed var(--ra-line);margin-top:var(--ra-sp-3);padding-top:var(--ra-sp-3)}
+  #cardOpts .group:first-of-type{border-top:0;margin-top:0;padding-top:0}
   .stats{grid-template-columns:repeat(2,1fr)}
   .stage-row{grid-template-columns:1fr}
 }

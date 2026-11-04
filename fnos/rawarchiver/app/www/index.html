@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="RAW 归档 —— 相机照片按拍摄日期整理归档">
 <title>RAW 归档</title>
-<link rel="stylesheet" href="assets/ra.css">
+<link rel="stylesheet" href="/app/rawarchiver/assets/ra.css?v=1.0.25">
 </head>
 <body>
 <div class="app">
@@ -85,7 +85,8 @@
         <div class="card-h"><span class="idx">③</span><h2>选项</h2></div>
         <div class="group">
           <div class="glabel">归档结构</div>
-          <label class="chk"><input type="checkbox" id="optBrand"> <span>按品牌分层</span> <span class="sub">相机品牌 / 日期</span></label>
+          <label class="chk"><input type="checkbox" id="optBrand"> <span>按品牌分层</span></label>
+          <p class="gnote"><span><b>按品牌分层</b>：相机品牌 / 日期</span></p>
         </div>
         <div class="group">
           <div class="glabel">处理内容</div>
@@ -94,12 +95,14 @@
         </div>
         <div class="group">
           <div class="glabel">磁盘与校验</div>
-          <label class="chk" id="labStaging"><input type="checkbox" id="optStaging" checked> <span>内部暂存</span> <span class="sub">卡源推荐：先整卡拷到 NAS 再整理</span></label>
-          <label class="chk"><input type="checkbox" id="optHashFull"> <span>全文件校验</span> <span class="sub">去重比对更准，读盘更慢</span></label>
+          <label class="chk" id="labStaging"><input type="checkbox" id="optStaging" checked> <span>内部暂存</span></label>
+          <label class="chk"><input type="checkbox" id="optHashFull"> <span>全文件校验</span></label>
+          <p class="gnote"><span><b>内部暂存</b>：卡源推荐，先整卡拷到 NAS 再整理</span><span><b>全文件校验</b>：去重比对更准，读盘更慢</span></p>
         </div>
         <div class="group">
           <div class="glabel">重复归档防护</div>
-          <label class="chk"><input type="checkbox" id="optForceDup"> <span>重新处理已归档文件</span> <span class="sub">默认跳过；勾选后产生 _1/_2 副本</span></label>
+          <label class="chk"><input type="checkbox" id="optForceDup"> <span>重新处理已归档文件</span></label>
+          <p class="gnote"><span><b>重新处理已归档文件</b>：默认跳过已归档的；勾选后产生 <span class="mono">_1</span>/<span class="mono">_2</span> 副本</span></p>
         </div>
         <div class="group">
           <div class="glabel">模式</div>
