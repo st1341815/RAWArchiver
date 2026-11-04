@@ -30,14 +30,14 @@
       "is_docker": false,
       "service_port": "",
       "releases": {
-        "1.0.25": {
-          "changelog": "手机端选项区排版修复：4 条复选框的说明文字从控件名内移出，集中到组尾注释行（可折行）——此前说明与控件名同行且 nowrap，窄屏会把整组撑宽（实测 340px 宽下卡片撑到 343px、横向溢出 20px），注释被裁；单列布局恢复组间虚线分隔。另修复样式表引用改网关绝对路径（网关 URL 无尾斜杠时相对路径会 404）。",
-          "updated_at": "2026-11-05T05:12:12+08:00",
+        "2.0.0": {
+          "changelog": "重大版本：手机端界面重构 + 样式加载修复。①「选项」区 4 条复选框（按品牌分层 / 内部暂存 / 全文件校验 / 重新处理已归档文件）的说明文字从控件名内移出，统一集中到组尾注释行（可折行）——此前说明与控件名同行且 nowrap，窄屏会把整组撑宽（实测 340px 宽下卡片撑到 343px、横向溢出 20px），注释文字还会被裁；手机单列布局同时恢复组间虚线分隔。② 修复样式表加载：ra.css 改用网关绝对路径 /app/rawarchiver/assets/ra.css —— 网关 URL 无尾斜杠时相对路径会被解析成 /app/assets/ra.css 而 404，这是自 v1.0.23 起界面样式全部丢失（退回裸 HTML）的根因。③ 附开发自检脚本 tools/mobile_overflow_check.py，390/340/320 三档实测 0 溢出。",
+          "updated_at": "2026-11-05T06:30:01+08:00",
           "packages": {
             "all": {
-              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v1.0.25/rawarchiver-1.0.25.fpk",
-              "sha256": "838a71626dddd12f9d9d878b58361aac1c9514d63744a0c4790250e400b2c9fa",
-              "size": 5081893
+              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v2.0.0/rawarchiver-2.0.0.fpk",
+              "sha256": "d783e410bafa497c08b6fe2fec8ac8d8c5ac5ac7ee43f7b3a9780810a35ec31c",
+              "size": 5007145
             }
           }
         },
