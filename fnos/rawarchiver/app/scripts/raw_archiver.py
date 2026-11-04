@@ -36,7 +36,7 @@ except Exception:
 APP_NAME = 'RAW 归档'
 APP_DIR  = '.rawarchiver'          # 状态目录名（落在应用运行的主目录下，不写用户输出目录）
 LOG_DIR  = 'log'                   # 输出目录下存放运行日志与报告的文件夹
-APP_VER  = '1.0.22'
+APP_VER  = '1.0.23'
 
 RAW_EXTS = {'.nef','.nrw','.cr2','.cr3','.crw','.arw','.srf','.sr2','.raf','.orf','.dng','.pef','.rw2'}
 JPG_EXTS = {'.jpg','.jpeg'}

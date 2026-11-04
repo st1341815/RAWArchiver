@@ -4,147 +4,289 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="RAW 归档 —— 相机照片按拍摄日期整理归档">
 <title>RAW 归档</title>
-<style>
-body{font-family:-apple-system,"Microsoft YaHei",sans-serif;max-width:980px;margin:0 auto;padding:20px;color:#222}
-h1 small{font-size:14px;color:#666;font-weight:400}
-.intro{color:#555;font-size:13px;line-height:1.85;margin:6px 0 14px;padding:9px 12px;background:#f6f9fc;border-left:3px solid #4a9;border-radius:3px}
-.intro b{color:#2c6f5f;font-weight:600}
-label{display:block;margin-top:14px;font-weight:600}
-input[type=text],select{width:100%;padding:7px;margin-top:4px;box-sizing:border-box}
-input[type=checkbox]{margin-right:6px}
-button{margin-top:12px;padding:8px 16px;cursor:pointer;border:1px solid #bbb;background:#f5f5f5;border-radius:4px}
-button:disabled{opacity:.45;cursor:not-allowed}
-.row{display:flex;gap:8px;align-items:flex-end}
-.row>*{flex:1}.row>button{flex:0 0 auto;margin-top:4px}
-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
-th,td{border:1px solid #ddd;padding:5px;text-align:left;word-break:break-all}
-.bad{color:#c00;font-weight:600}.warn{color:#c00;margin-top:8px;line-height:1.6}
-.hint{color:#080;font-size:13px;margin-left:8px}
-#logBox{max-height:240px;overflow:auto;font-family:monospace;font-size:12px;background:#f7f7f7;padding:8px;margin-top:8px;white-space:pre-wrap}
-#progBar{height:18px;background:#eee;border-radius:4px;overflow:hidden;margin-top:10px}
-#progFill{width:0;height:100%;background:#4a9;transition:width .3s}
-footer{margin-top:28px;color:#999;font-size:12px;border-top:1px solid #eee;padding-top:10px}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50}
-.modal-box{background:#fff;border-radius:6px;width:min(640px,92vw);max-height:82vh;display:flex;flex-direction:column;padding:14px;box-sizing:border-box}
-.modal-head{font-weight:600;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.modal-x{cursor:pointer;border:none;background:none;font-size:22px;line-height:1;padding:0;color:#888}
-.dir-toolbar{display:flex;gap:8px;margin-bottom:6px}
-.dir-list{overflow:auto;flex:1;border:1px solid #ddd;border-radius:4px;min-height:180px;max-height:42vh;background:#fff}
-.dir-item{padding:7px 10px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-family:monospace;font-size:13px;word-break:break-all}
-.dir-item:hover{background:#f2f7fb}
-.dir-empty{padding:12px;color:#888;text-align:center;font-size:13px}
-.modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
-</style>
+<link rel="stylesheet" href="assets/ra.css">
 </head>
 <body>
-<h1>RAW 归档 <small>v1.0.22</small></h1>
-<div class="intro">
-  按 <b>EXIF 拍摄日期</b>把相机照片 / 视频整理归档到 NAS，源目录只读。
-  <b>已支持相机品牌</b>：佳能 Canon · 尼康 Nikon · 索尼 Sony · 富士 Fujifilm · 哈苏 Hasselblad · 徕卡 Leica 等；
-  <b>运动相机</b>：大疆 DJI · GoPro 等。品牌表另含奥林巴斯 · 松下 · 宾得/理光 · 适马 · 飞思 · 三星 · Apple · 华为 · 小米。
-  <b>支持格式</b>：RAW（NEF · NRW · CR2 · CR3 · CRW · ARW · SRF · SR2 · RAF · ORF · RW2 · DNG · PEF）、JPG / JPEG、
-  视频（MP4 · MOV · MTS · M2TS · AVI · MKV · 3GP · MPG · MPEG · WMV · FLV · M4V · TS · MOD · MXF）。
-  <b>手机照片</b>：手机拍的 JPG 照片与视频同样可归档；iPhone 默认的 HEIC / HEIF 暂不支持（可先在手机端改用兼容格式或转成 JPG）。
-</div>
-
-<label>源（SD/TF/U盘或本地目录）
-  <div class="row" style="margin-top:4px">
-    <input type="text" id="srcPath" placeholder="/vol00/MassStorageClass/DCIM 或 /vol1/1000/Photos">
-    <button type="button" id="browseSrc">选择源目录</button>
-  </div>
-  <span id="srcHint" class="hint"></span>
-</label>
-
-<label>输出目录（归档落点，不存在会自动创建）
-  <div class="row" style="margin-top:4px">
-    <input type="text" id="outPath" placeholder="/volume1/photos/Camera">
-    <button type="button" id="browseOut">选择目标目录</button>
-  </div>
-  <span id="outHint" class="hint"></span>
-</label>
-
-<label>选项</label>
-<div style="line-height:2">
-<label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optBrand"> 按品牌分层</label>
-<label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optJpg" checked> 处理 JPG</label>
-<label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optVideo" checked> 处理视频</label>
-<label style="display:inline-block;margin:0 16px 0 0;font-weight:400"><input type="checkbox" id="optStaging" checked> 内部暂存（卡源推荐）</label>
-<label style="display:inline-block;margin:0 16px 0 0;font-weight:400" title="打开后会对疑似重复的文件做全文件哈希比对，极大降低误判，但读盘更慢"><input type="checkbox" id="optHashFull"> 全文件校验（较慢）</label>
-<label style="display:inline-block;margin:0 16px 0 0;font-weight:400;color:#b45309" title="默认跳过已经归档过的文件，避免重复落盘；勾选后会再处理一遍并产生 _1/_2 副本"><input type="checkbox" id="optForceDup"> 重新处理已归档文件（产生副本）</label>
-</div>
-
-<label>模式
-  <select id="optMode">
-    <option value="copy">复制（保留源文件）</option>
-    <option value="move">移动（归档后清空源设备，不可回滚）</option>
-  </select>
-</label>
-
-<div>
-  <button type="button" id="btnPreview">预览</button>
-  <button type="button" id="btnStart" disabled>确认并开始</button>
-  <button type="button" id="btnCancel" disabled>取消</button>
-  <button type="button" id="btnCleanup">补清源</button>
-  <button type="button" id="btnRollback">回滚</button>
-</div>
-
-<div id="previewBox" style="display:none;margin-top:16px">
-  <div id="prevSummary"></div>
-  <div id="prevWarn" class="warn"></div>
-  <details id="prevDupDetails" style="display:none">
-    <summary id="prevDupToggle" style="cursor:pointer;font-weight:600;margin-top:8px;color:#b45309">已归档文件清单</summary>
-    <div style="overflow:auto;max-height:320px">
-      <table><thead><tr><th>源文件</th><th>原归档位置</th><th>归档时间</th><th>判定依据</th></tr></thead>
-      <tbody id="prevDupBody"></tbody></table>
+<div class="app">
+  <header class="hdr">
+    <div class="hdr-in">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="7" width="18" height="13" rx="2"/><circle cx="12" cy="13.5" r="3.5"/><path d="M8 7l1.5-3h5L16 7"/>
+        </svg>
+      </span>
+      <h1>RAW 归档 <small id="verTag"></small></h1>
+      <nav class="tabs" role="tablist" aria-label="页面">
+        <button type="button" class="tab" id="tabWork" role="tab" aria-selected="true">工作台</button>
+        <button type="button" class="tab" id="tabMaint" role="tab" aria-selected="false">维护</button>
+      </nav>
+      <div class="hdr-r">
+        <button type="button" class="dotdot" id="docDot" title="运行自检（点击查看详情）">
+          <span class="dot" id="dotMark"></span><span id="dotTx">自检中…</span>
+        </button>
+      </div>
     </div>
-  </details>
-  <details id="prevDetails">
-    <summary id="prevToggle" style="cursor:pointer;font-weight:600;margin-top:8px">文件清单</summary>
-    <div style="overflow:auto">
-      <table><thead><tr><th>源文件</th><th>拍摄日期</th><th>日期来源</th><th>目标路径</th><th>判定</th></tr></thead>
-      <tbody id="prevBody"></tbody></table>
-    </div>
-  </details>
+  </header>
+
+  <main class="body">
+    <!-- ═══════════ 工作台 ═══════════ -->
+    <section id="viewWork">
+
+      <!-- 空状态：未填源目录 -->
+      <div class="card hero" id="hero" hidden>
+        <div class="illus" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 7h3l1.5-2.5h7L17 7h3v11H4z"/><circle cx="12" cy="12.5" r="3.6"/><path d="M12 6.5v0"/>
+          </svg>
+        </div>
+        <h2>插入相机存储卡，按拍摄日期归档</h2>
+        <p>源目录只读：扫描与归档都不会在卡上产生任何文件。<br>选好源与目标目录，预览确认后一键归档到 NAS。</p>
+        <div class="acts">
+          <button type="button" class="btn btn-primary" id="heroPick">选择源目录</button>
+          <button type="button" class="btn btn-ghost" id="heroType">直接输入路径</button>
+        </div>
+      </div>
+
+      <!-- 设备识别条 -->
+      <div class="card" id="devStrip" hidden>
+        <div class="card-h">
+          <span class="idx">发现</span>
+          <h2 id="devTitle">已识别到可移动设备</h2>
+        </div>
+        <div id="devList" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+
+      <!-- ① 源 -->
+      <div class="card" id="cardSrc">
+        <div class="card-h"><span class="idx">①</span><h2>源</h2>
+          <span class="right" id="srcBadge"></span>
+        </div>
+        <div class="field">
+          <label for="srcPath">源目录</label>
+          <input type="text" id="srcPath" class="inp" placeholder="/vol00/MassStorageClass/DCIM 或 /vol1/1000/Photos" autocomplete="off" spellcheck="false">
+          <button type="button" class="btn btn-ghost" id="browseSrc">选择源目录</button>
+        </div>
+        <div class="aux" id="srcHint">SD / TF / U 盘，或 NAS 上的本地目录。只读，不改动源文件。</div>
+      </div>
+
+      <!-- ② 目标 -->
+      <div class="card" id="cardOut" hidden>
+        <div class="card-h"><span class="idx">②</span><h2>目标</h2></div>
+        <div class="field">
+          <label for="outPath">归档到</label>
+          <input type="text" id="outPath" class="inp" placeholder="/volume1/photos/Camera" autocomplete="off" spellcheck="false">
+          <button type="button" class="btn btn-ghost" id="browseOut">选择目标目录</button>
+        </div>
+        <div class="aux" id="outHint">不存在会自动创建；照片按 <span class="mono">YYYYMMDD</span> 落子目录。</div>
+      </div>
+
+      <!-- ③ 选项 -->
+      <div class="card" id="cardOpts" hidden>
+        <div class="card-h"><span class="idx">③</span><h2>选项</h2></div>
+        <div class="group">
+          <div class="glabel">归档结构</div>
+          <label class="chk"><input type="checkbox" id="optBrand"> <span>按品牌分层</span> <span class="sub">相机品牌 / 日期</span></label>
+        </div>
+        <div class="group">
+          <div class="glabel">处理内容</div>
+          <label class="chk"><input type="checkbox" id="optJpg" checked> <span>处理 JPG 照片</span></label>
+          <label class="chk"><input type="checkbox" id="optVideo" checked> <span>处理视频</span></label>
+        </div>
+        <div class="group">
+          <div class="glabel">磁盘与校验</div>
+          <label class="chk" id="labStaging"><input type="checkbox" id="optStaging" checked> <span>内部暂存</span> <span class="sub">卡源推荐：先整卡拷到 NAS 再整理</span></label>
+          <label class="chk"><input type="checkbox" id="optHashFull"> <span>全文件校验</span> <span class="sub">去重比对更准，读盘更慢</span></label>
+        </div>
+        <div class="group">
+          <div class="glabel">重复归档防护</div>
+          <label class="chk"><input type="checkbox" id="optForceDup"> <span>重新处理已归档文件</span> <span class="sub">默认跳过；勾选后产生 _1/_2 副本</span></label>
+        </div>
+        <div class="group">
+          <div class="glabel">模式</div>
+          <select id="optMode" class="inp" style="max-width:320px">
+            <option value="copy">复制（保留源文件）</option>
+            <option value="move">移动（归档后清空源，不可回滚）</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ④ 结果 -->
+      <div class="card" id="cardResult" hidden>
+        <div class="card-h"><span class="idx">④</span><h2 id="resTitle">预览与执行</h2></div>
+
+        <!-- 空提示 -->
+        <div id="resEmpty">
+          <div class="aux" style="margin:0">填好上方配置后，点下方「扫描预览」。扫描只读源目录，不写任何文件。</div>
+        </div>
+
+        <!-- 扫描中 -->
+        <div id="resScan" hidden>
+          <div class="pbar indet"><i></i></div>
+          <div class="aux" style="margin-top:8px" id="scanTx">正在扫描源（读卡较慢，请稍候）…</div>
+        </div>
+
+        <!-- 预览结果 -->
+        <div id="resReview" hidden>
+          <div class="stats" id="statsRow"></div>
+          <div class="aux" style="margin-top:10px" id="sumLine"></div>
+          <div class="confbar" style="margin-top:10px" id="confBar"></div>
+          <div class="aux" id="confLegend"></div>
+          <div id="noticeBox" style="display:flex;flex-direction:column;gap:8px;margin-top:10px"></div>
+          <div id="gatesBox" style="margin-top:6px" hidden></div>
+          <details id="prevDetails" style="margin-top:12px">
+            <summary id="prevToggle" style="cursor:pointer;font-weight:600">文件清单</summary>
+            <div class="tblwrap" style="max-height:340px;margin-top:8px">
+              <table class="tbl">
+                <colgroup><col style="width:32%"><col style="width:12%"><col style="width:16%"><col style="width:28%"><col style="width:12%"></colgroup>
+                <thead><tr><th>源文件</th><th>拍摄日期</th><th>日期来源</th><th>归档相对路径</th><th>判定</th></tr></thead>
+                <tbody id="prevBody"></tbody>
+              </table>
+            </div>
+          </details>
+          <details id="prevDupDetails" style="margin-top:10px" hidden>
+            <summary id="prevDupToggle" style="cursor:pointer;font-weight:600">已归档文件清单</summary>
+            <div class="tblwrap" style="max-height:300px;margin-top:8px">
+              <table class="tbl">
+                <colgroup><col style="width:32%"><col style="width:32%"><col style="width:18%"><col style="width:18%"></colgroup>
+                <thead><tr><th>源文件</th><th>原归档位置</th><th>归档时间</th><th>判定依据</th></tr></thead>
+                <tbody id="prevDupBody"></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+
+        <!-- 执行中 -->
+        <div id="resRun" hidden>
+          <div class="stage-row" id="stageRow"></div>
+          <div class="pbar" id="progBar"><i id="progFill"></i></div>
+          <div class="stats" style="margin-top:10px;grid-template-columns:repeat(4,1fr)" id="runStats"></div>
+          <div class="aux" style="margin-top:8px" id="progStats"></div>
+          <div class="nowbox" id="nowBox" style="margin-top:10px" hidden>
+            <div class="cap">最近处理</div>
+            <div class="p" id="nowSrc"></div>
+            <div class="p to" id="nowDst"></div>
+          </div>
+          <div class="aux" style="margin-top:12px;color:var(--ra-ink-2)">运行日志（最近 80 条）</div>
+          <div class="logbox" id="logBox" style="margin-top:6px"></div>
+        </div>
+
+        <!-- 结束 -->
+        <div id="resDone" hidden>
+          <div class="result-grid" id="doneStats"></div>
+          <div id="doneKv" style="margin-top:14px"></div>
+          <div id="doneNext" style="display:flex;flex-direction:column;gap:8px;margin-top:12px"></div>
+          <div class="dangerbox" id="dangerBox" style="margin-top:16px" hidden>
+            <h3>危险操作</h3>
+            <div class="aux" id="dgNote" style="margin:0 0 8px;display:block"></div>
+            <div class="field" style="flex-wrap:wrap">
+              <label for="tidIn" style="min-width:auto">任务</label>
+              <input type="text" id="tidIn" class="inp" style="max-width:280px" placeholder="任务ID" spellcheck="false">
+              <button type="button" class="btn btn-sm btn-od" id="btnCleanup">清空源文件</button>
+              <button type="button" class="btn btn-sm btn-ghost" id="btnRollback">回滚（移回 _restored/）</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ 维护 ═══════════ -->
+    <section id="viewMaint" hidden>
+      <div class="card">
+        <div class="card-h"><span class="idx">自检</span><h2>运行环境</h2>
+          <span class="right"><button type="button" class="btn btn-sm btn-ghost" id="docRefresh">重新自检</button></span>
+        </div>
+        <div id="docNotice"></div>
+        <div id="docBox" style="margin-top:8px"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><span class="idx">台账</span><h2>重复归档防护</h2></div>
+        <div class="aux" style="margin:0 0 8px;display:block">处理过的文件记在台账里，再次插卡默认跳过已归档文件。统计范围为「上方输出目录」；留空则统计全部。</div>
+        <button type="button" class="btn btn-sm btn-ghost" id="btnLedger">查看台账统计</button>
+        <div class="logbox mono" id="ledgerOut" style="margin-top:10px" hidden></div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><span class="idx">说明</span><h2>支持的设备与格式</h2></div>
+        <div class="brandline">
+          <b>相机品牌</b>：佳能 Canon · 尼康 Nikon · 索尼 Sony · 富士 Fujifilm · 哈苏 Hasselblad · 徕卡 Leica · 奥林巴斯 Olympus · 松下 Panasonic · 宾得/理光 Pentax/Ricoh · 适马 Sigma · 飞思 Phase One · 三星 Samsung · Apple · 华为 Huawei · 小米 Xiaomi<br>
+          <b>运动相机</b>：大疆 DJI · GoPro<br>
+          <b>RAW 格式</b>：NEF · NRW · CR2 · CR3 · CRW · ARW · SRF · SR2 · RAF · ORF · RW2 · DNG · PEF<br>
+          <b>照片</b>：JPG / JPEG（手机拍摄的 JPG 同样支持）<br>
+          <b>视频</b>：MP4 · MOV · MTS · M2TS · AVI · MKV · 3GP · MPG · MPEG · WMV · FLV · M4V · TS · MOD · MXF<br>
+          <b>暂不支持</b>：iPhone 默认的 HEIC / HEIF（可先在手机端转成 JPG）。
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><span class="idx">文件</span><h2>数据都写在哪</h2></div>
+        <div class="kv"><span class="k">任务状态</span><span class="v wrap">应用数据目录的 <span class="mono">.rawarchiver/</span>（含 state.json、取消标记、内部暂存）</span></div>
+        <div class="kv"><span class="k">运行日志</span><span class="v wrap"><span class="mono">&lt;输出目录&gt;/log/rawarchiver_&lt;任务ID&gt;.log</span></span></div>
+        <div class="kv"><span class="k">机器报告</span><span class="v wrap"><span class="mono">&lt;输出目录&gt;/log/_report_&lt;任务ID&gt;.json</span></span></div>
+        <div class="kv"><span class="k">源目录</span><span class="v wrap">只读；自 v1.0.14 起，源与输出目录根部都不产生任何文件</span></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="sticky" id="workbar" hidden>
+    <span class="hint" id="barHint"></span>
+    <span class="spacer"></span>
+    <span class="acts">
+      <button type="button" class="btn btn-od" id="btnCancel" hidden>停止归档</button>
+      <button type="button" class="btn btn-ghost" id="btnPreview" hidden>扫描预览</button>
+      <button type="button" class="btn btn-primary" id="btnStart" hidden disabled>开始归档</button>
+    </span>
+  </div>
 </div>
 
-<div id="statusBox" style="margin-top:16px;display:none">
-  <div id="progBar"><div id="progFill"></div></div>
-  <div id="progText"></div>
-  <div id="logBox"></div>
-</div>
+<footer id="footNote">RAW 归档 · 源目录只读 · 任务态写在应用数据目录 · 日志与报告写在 &lt;输出目录&gt;/log/</footer>
 
-<div id="dirModal" class="modal" style="display:none">
+<!-- 目录浏览器 -->
+<div id="dirModal" class="modal" hidden>
   <div class="modal-box">
-    <div class="modal-head"><span id="dirTitle"></span>
-      <button type="button" id="dirClose" class="modal-x" title="关闭">×</button>
-    </div>
-    <div class="row" style="margin-bottom:6px">
-      <input type="text" id="dirPath" placeholder="/vol1/photos">
-      <button type="button" id="dirGo">跳转</button>
+    <div class="modal-head"><b id="dirTitle">选择目录</b>
+      <button type="button" id="dirClose" class="modal-x" title="关闭" aria-label="关闭">×</button>
     </div>
     <div class="dir-toolbar">
-      <button type="button" id="dirUp" title="上级目录">⬆ 上级目录</button>
-      <button type="button" id="dirRoot" title="回到根目录">根目录</button>
+      <input type="text" id="dirPath" class="inp" placeholder="/vol1/photos" spellcheck="false">
+      <button type="button" id="dirGo" class="btn btn-sm btn-ghost">跳转</button>
+      <button type="button" id="dirUp" class="btn btn-sm btn-ghost" title="上级目录">↑ 上级</button>
+      <button type="button" id="dirRoot" class="btn btn-sm btn-ghost">根目录</button>
     </div>
     <div id="dirList" class="dir-list"></div>
-    <div id="dirMsg" class="hint" style="margin-top:6px"></div>
+    <div id="dirMsg" class="aux"></div>
     <div class="modal-foot">
-      <button type="button" id="dirCancel">取消</button>
-      <button type="button" id="dirOk">选择此文件夹</button>
+      <button type="button" id="dirCancel" class="btn btn-ghost">取消</button>
+      <button type="button" id="dirOk" class="btn btn-primary">选择此文件夹</button>
     </div>
   </div>
 </div>
 
-<footer>RAW 归档 · 源目录只读，不产生任何文件或文件夹 · 任务态写在应用数据目录的 .rawarchiver/ · 日志与报告写在 &lt;输出目录&gt;/log/</footer>
+<!-- 三段式确认（危险操作） -->
+<div id="cfModal" class="modal" hidden>
+  <div class="modal-box narrow">
+    <div class="modal-head"><b id="cfTitle">确认操作</b>
+      <button type="button" id="cfX" class="modal-x" title="关闭" aria-label="关闭">×</button>
+    </div>
+    <div class="modal-sec fact" id="cfFact"></div>
+    <div class="modal-sec why" id="cfWhy"></div>
+    <div class="modal-sec how" id="cfHow"></div>
+    <div class="modal-foot">
+      <button type="button" id="cfCancel" class="btn btn-ghost">取消</button>
+      <button type="button" id="cfOk" class="btn btn-od">执行</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <script type="module">
 // 飞牛统一网关微应用：静态 / API 都走 /app/rawarchiver 前缀。
 // 目录选择优先用飞牛 JS SDK（TrimApp）系统内部弹窗，桥不可用时回落 window.open / 内置目录浏览器。
-// macOS 版（PyInstaller + pywebview）复用本页：mode=macos 时改走 pywebview 原生目录选择框。
-// ⚠️ fnnas.js 用动态 import：静态 import 在 macOS（无该资源）会 404 并让整个 module 不执行。
+// macOS / Windows 版（PyInstaller + pywebview）复用本页：mode=macos|windows 时改走 pywebview 原生目录选择框。
+// ⚠️ fnnas.js 用动态 import：静态 import 在无该资源的平台会 404 并让整个 module 不执行。
 
-// fnnas SDK（penpal）在握手成功后的清理时序会 reject 一个 undefined（无害噪音），
-// 这里静默它，避免控制台出现 "Uncaught (in promise) undefined"。
+// fnnas SDK（penpal）在握手成功后的清理时序会 reject 一个 undefined（无害噪音），静默它。
 window.addEventListener('unhandledrejection', (ev) => {
   if (ev.reason === undefined) { ev.preventDefault(); return; }
   console.warn('[rawarchiver] 未处理的 Promise 拒绝:', ev.reason);
@@ -152,8 +294,9 @@ window.addEventListener('unhandledrejection', (ev) => {
 
 const GATEWAY_PREFIX = '/app/rawarchiver';
 const API = GATEWAY_PREFIX + '/api';
-const LS = 'rawarchiver.state';
-// macOS 版从窗口 URL 携带的 ?t=<token> 做本机 API 鉴权；fnOS 版无此参数，传空即可（网关负责鉴权）。
+const LS = 'rawarchiver.state';       // 表单记忆
+const LS_TASK = 'rawarchiver.task';   // 后台任务句柄（刷新页面可续看）
+// macOS/Windows 版从窗口 URL 携带的 ?t=<token> 做本机 API 鉴权；fnOS 版无此参数（网关负责鉴权）。
 const T = new URLSearchParams(location.search).get('t') || '';
 const $ = id => document.getElementById(id);
 const api = (act, body={}) => fetch(API + '?action=' + act + '&t=' + encodeURIComponent(T), {
@@ -161,25 +304,28 @@ const api = (act, body={}) => fetch(API + '?action=' + act + '&t=' + encodeURICo
   body: JSON.stringify(Object.assign({action:act}, body))
 }).then(r => r.json()).catch(e => ({ok:false, error:'请求失败: ' + e}));
 
-// ---- 运行模式检测：fnos-gateway / macos / 其他（独立浏览器） ----
+// HTML 转义：清单/提示条里的文件名与路径来自「被扫描的源目录」（SD 卡文件名可被构造），
+// 凡 innerHTML 插值一律先 esc()。
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ---- 运行模式检测：fnos-gateway / macos / windows / 其他（独立浏览器） ----
 let MODE = null;
 const MODE_READY = (async () => {
-  try { const r = await api('info'); if (r && r.ok) MODE = r.mode || null; } catch(e) {}
+  try { const r = await api('info'); if (r && r.ok) { MODE = r.mode || null; if (r.version) $('verTag').textContent = 'v' + r.version; } } catch(e) {}
   return MODE;
 })();
 MODE_READY.then(() => {
   if (MODE === 'macos') {
-    // macOS 语境的输入提示
     $('srcPath').placeholder = '/Volumes/SD卡名/DCIM 或 ~/Pictures/待归档';
     $('outPath').placeholder = '~/Pictures/归档 或 /Volumes/移动硬盘/归档';
-    const lab = $('optStaging') && $('optStaging').parentElement;
-    if (lab) lab.appendChild(document.createTextNode('（暂存会先拷到启动盘，空间紧张可取消勾选）'));
+    const sub = $('labStaging').querySelector('.sub');
+    if (sub) sub.textContent = '先拷到启动盘再整理，空间紧张可取消勾选';
   } else if (MODE === 'windows') {
-    // Windows 语境的输入提示
     $('srcPath').placeholder = 'D:\\DCIM 或 C:\\Users\\你\\Pictures';
     $('outPath').placeholder = 'D:\\归档 或 E:\\归档';
-    const lab = $('optStaging') && $('optStaging').parentElement;
-    if (lab) lab.appendChild(document.createTextNode('（暂存会先拷到系统盘，空间紧张可取消勾选）'));
+    const sub = $('labStaging').querySelector('.sub');
+    if (sub) sub.textContent = '先拷到系统盘再整理，空间紧张可取消勾选';
   }
 });
 
@@ -190,25 +336,17 @@ const AUTH_STATE_KEY = 'rawarchiver:fnnas-app-auth-request';
 const AUTH_MSG = 'rawarchiver:fnnas-app-auth';
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
   : Date.now() + '-' + Math.random().toString(36).slice(2) + '-' + Math.random().toString(36).slice(2));
-
-// 返回所选文件夹路径数组；失败 / 取消 / 弹窗被拦则返回 null（由调用方回落内置目录浏览器）
 const withTimeout = (p, ms) => Promise.race([
   p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
 ]);
 
-// HTML 转义：预览清单/提示条里的文件名与路径来自「被扫描的源目录」（SD 卡上的文件名可被构造，
-// 如 <img src=x onerror=...>.jpg）。这几处需要 innerHTML 渲染 <b>/<br>，所以插值一律先 esc()。
-const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
-  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
 // 页面加载即初始化 SDK（单例 + 硬超时），把 penpal 握手提前到页面加载（对齐 file.dedupe）
-// fnnas.js 用动态 import（绝对路径）：macOS 打包里没有这个资源，静态 import 404 会让整页脚本失效。
 let _sdk = null, _sdkInit = null;
 function getSdk() {
   if (!_sdkInit) {
     _sdkInit = (async () => {
       await MODE_READY;
-      if (MODE === 'macos' || MODE === 'windows') { _sdk = null; return null; }   // macOS/Windows 不走飞牛 SDK
+      if (MODE === 'macos' || MODE === 'windows') { _sdk = null; return null; }   // 非飞牛环境不走 SDK
       try {
         const mod = await import(APP_BASE + '/assets/fnnas.js');
         const s = new mod.s();
@@ -225,7 +363,6 @@ function getSdk() {
 }
 getSdk();
 
-// ---- macOS：pywebview 桥就绪等待 ----
 function pywebviewReady() {
   if (window.pywebview && window.pywebview.api) return Promise.resolve(true);
   return new Promise(res => {
@@ -239,13 +376,13 @@ async function pickFolderNative(title) {
   // 0) macOS / Windows：pywebview 原生目录选择框（NSOpenPanel / IFileDialog）
   if (MODE === 'macos' || MODE === 'windows') {
     const ready = await pywebviewReady();
-    if (!ready) return null;               // 桥不可用 → 内置目录浏览器兜底
+    if (!ready) return null;
     try {
       const p = await window.pywebview.api.pick_folder(title || '选择目录');
-      return (typeof p === 'string' && p) ? [p] : [];   // 取消/空 = 空数组，不再弹第二个框
+      return (typeof p === 'string' && p) ? [p] : [];
     } catch (e) { return []; }
   }
-  // 1) 优先：飞牛 JS SDK 系统内部弹窗（微应用环境，非独立浏览器）
+  // 1) 优先：飞牛 JS SDK 系统内部弹窗
   const sdk = await getSdk();
   if (sdk && !sdk.isStandaloneWeb) {
     try {
@@ -254,19 +391,14 @@ async function pickFolderNative(title) {
         okText: '选择',
         sidebarGroup: ['myFiles', 'otherShare', 'external', 'remote', 'favorites', 'team'],
         creatable: false,
-        // 宿主对已授权目录默认禁用（disabledPaths: 参数 ?? 已授权列表）；
-        // 显式传空数组覆盖之，否则已选过的文件夹会变灰不可再选。
-        disabledPaths: []
+        disabledPaths: []   // 覆盖宿主默认值：已选过的文件夹可再选
       }), 180000);
       if (r && r.code === 0) return Array.isArray(r.data) ? r.data : [];
-      // 取消（宿主返回 msg='Cancelled'）：安静结束，不再弹第二个框
       if (r && /cancel|取消/i.test(r.msg || '')) return [];
-      // 真错误：提示，但同样不弹第二个框
-      if (r && r.msg) alert('目录选择失败：' + r.msg);
+      if (r && r.msg) toast('目录选择失败：' + r.msg, 'err');
       return [];
     } catch (e) {
       console.warn('[rawarchiver] pickSharedFile 失败/超时:', e && e.message);
-      // 桥已确认可用（原生框能弹出），异常/超时也不回落弹第二个框
       return [];
     }
   }
@@ -306,54 +438,191 @@ function pickFolderViaWindow() {
   });
 }
 
-let tid = null, timer = null;
-const save = () => localStorage.setItem(LS, JSON.stringify({src:$('srcPath').value, out:$('outPath').value, mode:$('optMode').value}));
+/* ════════════════ 表单状态 ════════════════ */
+let tid = null;            // 当前/最近任务ID
+let timer = null;          // 状态轮询
+let RESVIEW = 'empty';     // empty | scan | review | run | done
+let PV = null;             // 最近一次预览结果
+let RUN = null;            // 当前任务上下文 {tid, output}
+let DUP = {count:0, bytes:0, guard:'', lastAt:''};
+let STOPPING = false;
+let gateMove = null, gateForce = null;
+let ETA = [];              // [ts, current] 滑动窗口
+
+const save = () => localStorage.setItem(LS, JSON.stringify({
+  src: $('srcPath').value, out: $('outPath').value, mode: $('optMode').value,
+  brand: $('optBrand').checked, jpg: $('optJpg').checked, video: $('optVideo').checked,
+  staging: $('optStaging').checked, hash: $('optHashFull').checked, force: $('optForceDup').checked }));
 const load = () => { try { const o = JSON.parse(localStorage.getItem(LS)||'{}');
-  $('srcPath').value = o.src||''; $('outPath').value = o.out||''; if (o.mode) $('optMode').value = o.mode; } catch(e){} };
+  $('srcPath').value = o.src||''; $('outPath').value = o.out||''; if (o.mode) $('optMode').value = o.mode;
+  if (typeof o.brand === 'boolean') $('optBrand').checked = o.brand;
+  if (typeof o.jpg === 'boolean') $('optJpg').checked = o.jpg;
+  if (typeof o.video === 'boolean') $('optVideo').checked = o.video;
+  if (typeof o.staging === 'boolean') $('optStaging').checked = o.staging;
+  if (typeof o.hash === 'boolean') $('optHashFull').checked = o.hash;
+  if (typeof o.force === 'boolean') $('optForceDup').checked = o.force;
+} catch(e){} };
 load();
 
 const isRemovable = () => /^\/(volumeUSB|vol00|mnt\/usb|media|run\/media|Volumes)|^[A-Za-z]:\\/.test($('srcPath').value.trim());
-const check = () => { const ok = $('srcPath').value.trim() && $('outPath').value.trim() && $('previewBox').dataset.ready === '1';
-  $('btnStart').disabled = !ok; };
-// 任何输入/选项变化都让上次预览作废（确认凭据绑定源/输出/选项，变了必须重新预览）
-let DUP = {count:0, bytes:0, guard:'', lastAt:''};
-const invalidate = () => { $('previewBox').dataset.ready = ''; check(); };
-$('srcPath').oninput = () => { save(); invalidate(); $('srcHint').textContent=''; };
-$('outPath').oninput = () => { save(); invalidate(); $('outHint').textContent=''; };
-$('optMode').onchange = () => { save(); invalidate(); };
-['optBrand','optJpg','optVideo','optStaging','optHashFull'].forEach(id => {
-  const el = $(id); if (el) el.onchange = invalidate;
-});
+const reviewed = () => RESVIEW === 'review';
 
+function gatesOK(){
+  if (!PV || !reviewed()) return false;
+  if (PV.removable && $('optMode').value === 'move' && !(gateMove && gateMove.checked)) return false;
+  if ($('optForceDup').checked) {
+    if (!DUP.count) return false;
+    if (!(gateForce && gateForce.checked)) return false;
+  }
+  return true;
+}
+function check(){
+  const hasCfg = $('srcPath').value.trim() && $('outPath').value.trim();
+  if (RESVIEW === 'review') {
+    $('btnStart').disabled = !(hasCfg && gatesOK());
+    if (!hasCfg) setHint('请先补齐源与目标目录');
+    else if (!gatesOK()) setHint('请在卡片④勾选确认项后开始');
+    else setHint('预览完成，点「开始归档」执行；源目录只读');
+  }
+}
+function setHint(t){ $('barHint').textContent = t; }
+
+// 任何输入/选项变化都让上次预览作废（服务端凭据绑定源/输出/选项，变了必须重新预览）
+function invalidate(){
+  if (RESVIEW === 'review') { RESVIEW = 'ready'; renderResult('empty'); }
+  PV = null; gatesBoxHide();
+  check(); updateLayout();
+}
+function gatesBoxHide(){ $('gatesBox').hidden = true; $('gatesBox').innerHTML=''; gateMove = gateForce = null; }
+
+function updateLayout(){
+  const hasSrc = !!$('srcPath').value.trim();
+  $('hero').hidden = hasSrc;
+  if (hasSrc) $('devStrip').hidden = true;
+  else pollDevices();
+  $('cardOut').hidden = !hasSrc;
+  $('cardOpts').hidden = !hasSrc;
+  $('cardResult').hidden = !hasSrc;
+  // 源徽标
+  const b = $('srcBadge');
+  if (!hasSrc) b.innerHTML = '';
+  else if (isRemovable()) b.innerHTML = '<span class="badge b-b">可移动设备</span>';
+  else b.innerHTML = '<span class="badge b-s">本地目录</span>';
+  // 吸底栏
+  const running = RESVIEW === 'run';
+  $('workbar').hidden = $('viewMaint').hidden === false;
+  $('btnCancel').hidden = !running;
+  $('btnPreview').hidden = running || !hasSrc;
+  $('btnStart').hidden = RESVIEW !== 'review';
+  $('btnPreview').textContent = (RESVIEW === 'review' || RESVIEW === 'done') ? '重新扫描' : '扫描预览';
+  if (!hasSrc && !running) setHint('先选择源目录');
+  else if (RESVIEW === 'empty' && hasSrc) setHint('配置就绪，点「扫描预览」（只读，不写任何文件）');
+  else if (running) setHint('归档进行中，可关闭页面，任务在后台继续');
+  else if (RESVIEW === 'done') setHint('任务已结束，点「重新扫描」可继续下一批');
+  check();
+}
+
+function renderResult(v){
+  RESVIEW = v;
+  $('resEmpty').hidden = v !== 'empty';
+  $('resScan').hidden = v !== 'scan';
+  $('resReview').hidden = v !== 'review';
+  $('resRun').hidden = v !== 'run';
+  $('resDone').hidden = v !== 'done';
+  $('resTitle').textContent = v === 'done' ? '结果' : '预览与执行';
+  if (v === 'review') $('btnPreview').textContent = '重新扫描';
+  updateLayout();
+}
+
+function freeze(on){
+  ['srcPath','outPath','browseSrc','browseOut','optMode','optBrand','optJpg','optVideo','optStaging','optHashFull','optForceDup']
+    .forEach(id => { const el = $(id); if (el) el.disabled = on; });
+}
+
+/* ════════════════ 轻提示 / 格式化 ════════════════ */
+let _toastT = null;
+function toast(msg, kind){
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = 'toast on' + (kind === 'err' ? ' err' : '');
+  clearTimeout(_toastT);
+  _toastT = setTimeout(() => { el.className = 'toast' + (kind === 'err' ? ' err' : ''); }, 3000);
+}
+const fs = n => n >= 1073741824 ? (n/1073741824).toFixed(2) + ' GB'
+  : n >= 1048576 ? (n/1048576).toFixed(1) + ' MB'
+  : n >= 1024 ? (n/1024).toFixed(0) + ' KB' : (n||0) + ' B';
+const hms = s => { if (s == null || s < 0) return '—';
+  if (s < 60) return Math.round(s) + ' 秒';
+  if (s < 3600) return Math.floor(s/60) + ' 分 ' + Math.round(s%60) + ' 秒';
+  return Math.floor(s/3600) + ' 小时 ' + Math.floor((s%3600)/60) + ' 分'; };
+
+const VERDICT_LABEL = {new:'新文件', dup:'已归档', dup_unverified:'待校验', missing:'原文件已不在', conflict:'同名冲突', nodate:'无日期'};
+const VERDICT_CLS = {new:'b-ok', dup:'b-warn', dup_unverified:'b-warn', missing:'b-warn', conflict:'b-dg', nodate:'b-s'};
+const LEVEL_LABEL = {l1:'元数据', l2:'内容', l3:'现场'};
+
+// 日期来源徽标：exiftool 返回的是 Group1 组名（exif / quicktime / ifd0 / file / system…），
+// exifread/pillow 走纯 Python 路径，file_mtime 为兜底。全小写比较、未知来源中性灰。
+const CONF_A = new Set(['exifread','pillow','exif','ifd0','exififd','gps','xmp','iptc','makernotes','ciff',
+  'canon','nikon','sony','fujifilm','panasonic','leica','hasselblad','dji','gopro','apple','huawei','xiaomi',
+  'samsung','olympus','pentax','ricoh','sigma','phaseone','kodak']);
+const CONF_B = new Set(['quicktime','track','movie','riff','matroska','exiftool','ffmpeg','mxf','asf','flash']);
+const CONF_C = new Set(['file_mtime','file','fileinode','system']);
+function confBadge(tag){
+  const t = String(tag||'').toLowerCase();
+  if (!t || t === 'unknown') return {cls:'b-s', title:'无法识别来源'};
+  if (CONF_A.has(t)) return {cls:'b-a', title:'拍摄时间来自照片元数据（可信）'};
+  if (CONF_B.has(t)) return {cls:'b-b', title:'容器记录的时间（一般可信）'};
+  if (CONF_C.has(t)) return {cls:'b-c', title:'文件系统时间（仅供参考）'};
+  return {cls:'b-s', title:'未知来源'};
+}
+const badge = (tag) => { const c = confBadge(tag);
+  return '<span class="badge ' + c.cls + '" title="' + c.title + '">' + esc(tag || 'unknown') + '</span>'; };
+const vbadge = v => '<span class="badge ' + (VERDICT_CLS[v]||'b-s') + '">' + esc(VERDICT_LABEL[v] || v || '') + '</span>';
+
+/* ════════════════ 目录选择 / 浏览 ════════════════ */
 $('browseSrc').onclick = async () => {
   const paths = await pickFolderNative('选择源目录');
   if (paths !== null) {
     if (paths.length) {
       $('srcPath').value = paths[0];
       $('srcHint').textContent = '已选择：' + paths[0];
-      $('srcHint').style.color = '#080';
-      save(); check();
+      $('srcHint').className = 'aux ok';
+      save(); invalidate();
     }
     return;
   }
   openDirPicker('src');
 };
+$('browseOut').onclick = async () => {
+  const paths = await pickFolderNative('选择目标目录');
+  if (paths !== null) {
+    if (paths.length) {
+      $('outPath').value = paths[0];
+      $('outHint').textContent = '已选择：' + paths[0];
+      $('outHint').className = 'aux ok';
+      save(); invalidate();
+    }
+    return;
+  }
+  openDirPicker('out');
+};
+$('heroPick').onclick = () => $('browseSrc').click();
+$('heroType').onclick = () => { $('srcPath').focus(); };
 
-// ---- 输出目录：选择目标目录（服务端目录浏览器）----
 let dirCurrent = '/', dirParent = null, dirTarget = 'out';
 async function loadDir(path){
   $('dirMsg').textContent = '';
   const r = await api('browse', {path: path});
   if (!r.ok) {
     $('dirList').replaceChildren();
-    $('dirMsg').style.color = '#c00';
+    $('dirMsg').className = 'aux err';
     $('dirMsg').textContent = r.error || '读取失败';
     return false;
   }
   dirCurrent = r.path; dirParent = r.parent;
   $('dirPath').value = r.path;
   $('dirUp').disabled = !r.parent;
-  $('dirMsg').style.color = '#080';
+  $('dirMsg').className = 'aux ok';
   $('dirMsg').textContent = (r.dirs.length ? r.dirs.length + ' 个子目录' : '该目录下无子目录')
     + (r.writable ? '' : ' · 当前目录不可写');
   const box = $('dirList'); box.replaceChildren();
@@ -366,7 +635,8 @@ async function loadDir(path){
     r.dirs.forEach(d => {
       const el = document.createElement('div');
       el.className = 'dir-item';
-      el.textContent = '📁 ' + d.name;
+      el.textContent = d.name;
+      el.title = d.path;
       el.onclick = () => loadDir(d.path);
       box.appendChild(el);
     });
@@ -376,187 +646,541 @@ async function loadDir(path){
 async function openDirPicker(target){
   dirTarget = target === 'src' ? 'src' : 'out';
   $('dirTitle').textContent = dirTarget === 'src' ? '选择源目录' : '选择目标目录';
-  $('dirModal').style.display = 'flex';
+  $('dirModal').hidden = false;
   const start = (dirTarget === 'src' ? $('srcPath').value : $('outPath').value).trim();
   if (!(await loadDir(start || '/'))) await loadDir('/');
 }
-$('browseOut').onclick = async () => {
-  const paths = await pickFolderNative('选择目标目录');
-  if (paths !== null) {                       // 用了飞牛自带选择框
-    if (paths.length) {
-      $('outPath').value = paths[0];
-      $('outHint').textContent = '已选择：' + paths[0];
-      $('outHint').style.color = '#080';
-      save(); check();
-    }
-    return;                                   // 空数组 = 用户取消，不再弹自带框
-  }
-  openDirPicker('out');                       // 原生框没选到/被拦 -> 内置目录浏览器兜底
-};
-$('dirClose').onclick = $('dirCancel').onclick = () => { $('dirModal').style.display = 'none'; };
+$('dirClose').onclick = $('dirCancel').onclick = () => { $('dirModal').hidden = true; };
+$('dirModal').onclick = e => { if (e.target === $('dirModal')) $('dirModal').hidden = true; };
 $('dirUp').onclick = () => { if (dirParent) loadDir(dirParent); };
 $('dirRoot').onclick = () => loadDir('/');
 $('dirGo').onclick = () => loadDir($('dirPath').value.trim() || '/');
 $('dirPath').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); loadDir($('dirPath').value.trim() || '/'); } });
-$('dirModal').onclick = e => { if (e.target === $('dirModal')) $('dirModal').style.display = 'none'; };
 $('dirOk').onclick = () => {
   if (dirTarget === 'src') {
     $('srcPath').value = dirCurrent;
     $('srcHint').textContent = '已选择：' + dirCurrent;
-    $('srcHint').style.color = '#080';
+    $('srcHint').className = 'aux ok';
   } else {
     $('outPath').value = dirCurrent;
     $('outHint').textContent = '已选择：' + dirCurrent;
-    $('outHint').style.color = '#080';
+    $('outHint').className = 'aux ok';
   }
-  $('dirModal').style.display = 'none';
-  save(); check();
+  $('dirModal').hidden = true;
+  save(); invalidate();
 };
 
-const fs = n => n >= 1073741824 ? (n/1073741824).toFixed(2) + ' GB'
-  : n >= 1048576 ? (n/1048576).toFixed(1) + ' MB'
-  : n >= 1024 ? (n/1024).toFixed(0) + ' KB' : (n||0) + ' B';
-const VERDICT_LABEL = {new:'新文件', dup:'已归档', dup_unverified:'待校验', missing:'原文件已不在', conflict:'同名冲突', nodate:'无日期'};
-const LEVEL_LABEL = {l1:'元数据', l2:'内容', l3:'现场'};
+/* ════════════════ 输入绑定 ════════════════ */
+$('srcPath').oninput = () => { save(); invalidate(); $('srcHint').textContent = ''; $('srcHint').className = 'aux'; };
+$('outPath').oninput = () => { save(); invalidate(); $('outHint').textContent = ''; $('outHint').className = 'aux'; };
+$('optMode').onchange = () => { save(); invalidate(); };
+['optBrand','optJpg','optVideo','optStaging','optHashFull','optForceDup'].forEach(id => {
+  const el = $(id); if (el) el.onchange = () => { save(); invalidate(); };
+});
+$('gatesBox').addEventListener('change', check);
+
+/* ════════════════ 预览 ════════════════ */
+const EMPTY_HTML = '<div class="aux" style="margin:0">填好上方配置后，点下方「扫描预览」。扫描只读源目录，不写任何文件。</div>';
+const scanBody = () => ({source: $('srcPath').value.trim(), output: $('outPath').value.trim(),
+  brandFolder: $('optBrand').checked, handleJpg: $('optJpg').checked,
+  handleVideo: $('optVideo').checked, staging: $('optStaging').checked,
+  // mode 必须随预览上送：服务端确认凭据绑定 opts_sig（含 mode），
+  // 漏发会让「move + 重新处理已归档」组合必然报「凭据与选项不匹配」
+  mode: $('optMode').value,
+  dupHash: $('optHashFull').checked ? 'full' : 'sampled'});
 
 $('btnPreview').onclick = async () => {
-  const body = {source: $('srcPath').value.trim(), output: $('outPath').value.trim(),
-    brandFolder: $('optBrand').checked, handleJpg: $('optJpg').checked,
-    handleVideo: $('optVideo').checked, staging: $('optStaging').checked,
-    dupHash: $('optHashFull').checked ? 'full' : 'sampled'};
-  if (!body.source || !body.output) { alert('请先填写源与输出目录'); return; }
-  $('prevSummary').textContent = '正在扫描源（读卡较慢，请稍候）...';
-  $('prevWarn').innerHTML = ''; $('prevDupDetails').style.display = 'none';
-  $('previewBox').style.display = 'block'; $('previewBox').dataset.ready = '';
+  const body = scanBody();
+  if (!body.source || !body.output) { toast('请先填写源与输出目录', 'err'); return; }
+  const snap = JSON.stringify(body);
+  $('btnPreview').disabled = true;
+  $('resEmpty').innerHTML = EMPTY_HTML;
+  renderResult('scan');
+  setHint('正在扫描（读卡较慢，请稍候）…');
   const r = await api('preview', body);
-  if (!r.ok) { $('prevSummary').textContent=''; $('prevWarn').textContent = r.error; return; }
-  const d = r.result, c = d.counts || {};
+  $('btnPreview').disabled = false;
+  if (JSON.stringify(scanBody()) !== snap) {   // 扫描期间配置有改动 → 结果作废
+    renderResult('empty');
+    setHint('扫描期间配置有改动，请重新扫描');
+    return;
+  }
+  if (!r.ok) {
+    renderResult('empty');
+    $('resEmpty').innerHTML = noticeHTML('dg', esc(r.error || '扫描失败'));
+    setHint('扫描失败，修正后重试');
+    return;
+  }
+  PV = r.result; renderReview(PV);
+};
+
+function noticeHTML(kind, html){
+  const ICONS = {
+    warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4l9 16H3z"/><path d="M12 10v4"/><path d="M12 17.5v.5"/></svg>',
+    info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.5v.5"/></svg>',
+    dg:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5v.5"/></svg>',
+    ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>'
+  };
+  return '<div class="notice n-' + kind + '">' + (ICONS[kind]||'') + '<div class="tx">' + html + '</div></div>';
+}
+
+function renderReview(d){
+  const c = d.counts || {};
   const dupN = (c.dup||0) + (c.dup_unverified||0);
   DUP = {count: dupN, bytes: (d.dup && d.dup.bytes) || 0, guard: d.dup_guard || '',
          lastAt: (d.dup && d.dup.last_at) || ''};
 
-  $('prevSummary').innerHTML = '<b>' + esc(d.total) + '</b> 个文件 / ' + fs(d.size)
-    + ' ｜ 日期 ' + esc(d.date_range[0]||'?') + ' ~ ' + esc(d.date_range[1]||'?')
-    + '<br>新文件 <b>' + esc(c.new||0) + '</b>'
-    + ' ｜ 已归档 <b>' + esc(dupN) + '</b>' + ((c.dup_unverified) ? ('（其中待校验 ' + esc(c.dup_unverified) + '）') : '')
-    + ' ｜ 同名冲突 ' + esc(c.conflict||0)
-    + ' ｜ 无日期 ' + esc(c.nodate||0)
-    + ' ｜ ExifTool: ' + (d.exiftool ? '可用' : '未找到（视频日期会退化）');
+  // 五格统计
+  const cell = (n, label, cls) => '<div class="stat"><b class="num ' + (cls||'') + '">' + esc(n) + '</b><u>' + esc(label) + '</u></div>';
+  $('statsRow').innerHTML =
+      cell(d.total, '文件总数') + cell(c.new||0, '新文件', '') + cell(dupN, '已归档', dupN?'':'')
+    + cell(c.conflict||0, '同名冲突', c.conflict?'':'') + cell(c.nodate||0, '无日期', c.nodate?'':'');
+  $('sumLine').innerHTML = esc(fs(d.size)) + ' <span class="sep">·</span> 日期 '
+    + esc((d.date_range && d.date_range[0]) || '?') + ' ~ ' + esc((d.date_range && d.date_range[1]) || '?')
+    + typeLine(d.by_type) + ' <span class="sep">·</span> ExifTool ' + (d.exiftool ? '可用' : '未找到（视频日期会退化）');
 
-  let w = '';
+  // 日期来源构成（按全部文件统计的三桶，准确不缩样）
+  const bad = d.bad_count || 0;
+  const nodate = c.nodate || 0;
+  const A = Math.max(0, (d.total||0) - bad);
+  const B = Math.max(0, bad - nodate);
+  const tot = Math.max(1, A + B + nodate);
+  $('confBar').innerHTML =
+      '<i style="width:' + (A/tot*100) + '%;background:var(--ra-conf-a-ink)"></i>'
+    + '<i style="width:' + (B/tot*100) + '%;background:var(--ra-conf-b-ink)"></i>'
+    + '<i style="width:' + (nodate/tot*100) + '%;background:var(--ra-conf-c-ink)"></i>';
+  $('confLegend').innerHTML = '<span class="badge b-a">元数据日期 ' + esc(A) + '</span>'
+    + '<span class="badge b-b">文件时间兜底 ' + esc(B) + '</span>'
+    + '<span class="badge b-c">无日期（执行时跳过） ' + esc(nodate) + '</span>';
+
+  // 提示条
+  const N = [];
   if (dupN) {
-    w += '⚠ 检测到 <b>' + esc(dupN) + '</b> 个文件此前已归档'
-       + (DUP.lastAt ? ('（最近 ' + esc(DUP.lastAt.slice(0,16)) + '）') : '')
-       + '，约 ' + fs(DUP.bytes) + '，<b>默认跳过以免重复落盘</b>。';
-    if (c.dup_unverified) {
-      w += '<br>其中 ' + esc(c.dup_unverified) + ' 个只靠文件名/大小匹配、尚未读内容校验：执行时会逐个比对内容，'
-         + '确认是同一张就跳过，内容不同的会作为新文件归档（不会丢照片）。';
-    }
-    w += '<br>确实需要再处理一遍（例如想重建目录结构）时，请勾选上方「<b>重新处理已归档文件</b>」，届时会二次确认。';
+    let s = '检测到 <b>' + esc(dupN) + '</b> 个文件此前已归档'
+      + (DUP.lastAt ? '（最近 ' + esc(DUP.lastAt.slice(0,16)) + '）' : '')
+      + '，约 ' + esc(fs(DUP.bytes)) + '，<b>默认跳过以免重复落盘</b>。';
+    if (c.dup_unverified) s += ' 其中 ' + esc(c.dup_unverified) + ' 个只靠文件名/大小匹配、尚未读内容校验：执行时会逐个比对内容，确认同一张就跳过，内容不同会作为新文件归档（不会丢照片）。';
+    s += ' 确需再处理一遍时，请勾选「重新处理已归档文件」。';
+    N.push(noticeHTML('warn', s));
   }
-  if (c.missing) w += '<br>另有 ' + esc(c.missing) + ' 个有归档记录但原归档文件已不在原位，将重新归档。';
-  if (d.volume && d.volume.seen_before) {
-    w += '<br>这张卡 / 这个目录上次处理过：' + esc(d.volume.last_at || '—') + '（' + esc(d.volume.last_count||0) + ' 个文件）。';
-  }
-  if (d.sample_limited) w += '<br>清单只列前 ' + esc(d.sample_shown || 500)
-    + ' 条（文件较多），<b>统计与去重按全部 ' + esc(d.total) + ' 个文件计算</b>，不受此限制。';
-  if (d.bad_count) w += '<br>注意：' + esc(d.bad_count) + ' 个文件只能靠文件修改时间推断日期，请核对后再执行。';
-  if (d.raw_skip_hint) w += '<br>提示：' + esc(d.raw_skip_hint) + ' 个照片读不到拍摄日期，执行时将被跳过（不拷贝）。';
-  if (c.conflict) w += '<br>提示：' + esc(c.conflict) + ' 个目标同名但内容不同，将自动追加 _1/_2（这是真冲突，不是重复归档）。';
+  if (c.missing) N.push(noticeHTML('info', '另有 ' + esc(c.missing) + ' 个有归档记录、但原归档文件已不在原位，将重新归档。'));
+  if (d.volume && d.volume.seen_before)
+    N.push(noticeHTML('info', '这张卡 / 这个目录上次处理过：' + esc(d.volume.last_at || '—') + '（' + esc(d.volume.last_count||0) + ' 个文件）。'));
+  if (d.sample_limited)
+    N.push(noticeHTML('info', '清单只列前 ' + esc(d.sample_shown || 500) + ' 条（文件较多）；<b>统计与去重按全部 ' + esc(d.total) + ' 个文件计算</b>，不受此限制。'));
+  if (d.bad_count)
+    N.push(noticeHTML('warn', esc(d.bad_count) + ' 个文件只能靠文件修改时间推断日期，请核对后再执行。'));
+  if (d.raw_skip_hint)
+    N.push(noticeHTML('warn', esc(d.raw_skip_hint) + ' 个照片读不到拍摄日期，执行时将被跳过（不拷贝）。'));
+  if (c.conflict)
+    N.push(noticeHTML('warn', esc(c.conflict) + ' 个目标同名但内容不同，将自动追加 <span class="mono">_1/_2</span>（是真冲突，不是重复归档）。'));
   if (d.removable && $('optMode').value === 'move')
-    w += '<br><b>源为可移动设备，移动模式下归档完成后将清空卡上约 ' + fs(d.size) + ' 文件，此操作不可回滚。</b>';
-  $('prevWarn').innerHTML = w;
+    N.push(noticeHTML('dg', '<b>源为可移动设备，移动模式下归档完成后将清空卡上约 ' + esc(fs(d.size)) + ' 文件，此操作不可回滚。</b>'));
+  $('noticeBox').innerHTML = N.join('');
 
+  // 确认门
+  renderGates();
+
+  // 清单
   const samples = (d.dup && d.dup.sample) || [];
   if (samples.length) {
-    $('prevDupBody').innerHTML = samples.map(s => '<tr><td>' + esc(s.src) + '</td><td>' + esc(s.prev_dst || '—')
-      + '</td><td>' + esc((s.archived_at || '—').slice(0,16)) + '</td><td>'
-      + esc(VERDICT_LABEL[s.verdict] || s.verdict || '') + (s.level ? (' / ' + esc(LEVEL_LABEL[s.level] || s.level)) : '')
+    $('prevDupBody').innerHTML = samples.map(s => '<tr><td class="mono">' + esc(s.src) + '</td><td class="mono">'
+      + esc(s.prev_dst || '—') + '</td><td class="num">' + esc((s.archived_at || '—').slice(0,16)) + '</td><td>'
+      + vbadge(s.verdict) + (s.level ? ' <span class="badge b-s">' + esc(LEVEL_LABEL[s.level] || s.level) + '</span>' : '')
       + '</td></tr>').join('');
-    $('prevDupToggle').textContent = '已归档文件清单（' + dupN + ' 个，显示前 ' + samples.length + ' 个）';
-    $('prevDupDetails').style.display = 'block';
+    $('prevDupToggle').textContent = '已归档文件清单（共 ' + dupN + ' 个，显示前 ' + samples.length + ' 个）';
+    $('prevDupDetails').hidden = false;
   } else {
-    $('prevDupDetails').style.display = 'none';
+    $('prevDupDetails').hidden = true;
   }
-
-  $('prevBody').innerHTML = (d.sample||[]).map(s => '<tr><td>' + esc(s.src) + '</td><td>' + esc(s.date||'—')
-    + '</td><td class="' + (s.bad?'bad':'') + '">' + esc(s.date_from) + '</td><td>' + esc(s.dst_rel||'')
-    + '</td><td>' + esc(VERDICT_LABEL[s.verdict] || s.verdict || '') + '</td></tr>').join('');
+  $('prevBody').innerHTML = (d.sample||[]).map(s => '<tr><td class="mono">' + esc(s.src) + '</td><td class="num">'
+    + esc(s.date||'—') + '</td><td>' + badge(s.date_from) + '</td><td class="mono">' + esc(s.dst_rel||'')
+    + '</td><td>' + vbadge(s.verdict) + '</td></tr>').join('');
   $('prevToggle').textContent = d.sample_limited
-    ? ('文件清单（共 ' + d.total + ' 个文件，此处只列前 ' + (d.sample_shown || (d.sample||[]).length)
-       + ' 个，点击展开/折叠）')
-    : ('文件清单（' + d.total + ' 个文件，点击展开/折叠）');
-  $('previewBox').dataset.ready = '1'; check();
-};
+    ? ('文件清单（共 ' + d.total + ' 个文件，此处只列前 ' + (d.sample_shown || (d.sample||[]).length) + ' 个）')
+    : ('文件清单（' + d.total + ' 个文件）');
 
-$('btnStart').onclick = async () => {
-  if ($('optMode').value === 'move' && isRemovable() &&
-      !confirm('确认归档后清空源设备上的文件？此操作不可回滚。')) return;
-  const force = $('optForceDup').checked;
-  if (force) {
-    if (!DUP.count) {
-      alert('本次预览没有发现已归档文件，无需勾选「重新处理已归档文件」。');
-      return;
-    }
-    if (!confirm('⚠ 将重新处理 ' + DUP.count + ' 个已归档文件（约 ' + fs(DUP.bytes) + '）。\n'
-                 + '目标目录会保留现有文件，并产生 _1/_2 副本。\n\n确认执行？')) return;
-  } else if (DUP.count > 0) {
-    if (!confirm('将跳过 ' + DUP.count + ' 个已归档文件（约 ' + fs(DUP.bytes) + '），只处理新文件。\n\n继续？')) return;
+  renderResult('review');
+  check();
+}
+function typeLine(byType){
+  if (!byType) return '';
+  const arr = Object.keys(byType).map(k => [k.replace(/^\./, '').toUpperCase(), byType[k]])
+    .sort((a,b) => b[1]-a[1]);
+  if (!arr.length) return '';
+  const top = arr.slice(0,6).map(x => esc(x[0]) + ' ×' + esc(x[1])).join(' · ');
+  return ' <span class="sep">·</span> ' + top + (arr.length > 6 ? ' 等 ' + arr.length + ' 种' : '');
+}
+function renderGates(){
+  let h = '';
+  if (PV && PV.removable && $('optMode').value === 'move') {
+    h += '<label class="gate"><input type="checkbox" id="gateMove"><span class="tx">我了解：归档完成后将清空源（<b>' + esc(PV.source) + '</b>）上约 <b>' + esc(fs(PV.size)) + '</b> 的文件，<b>此操作不可回滚</b>。</span></label>';
   }
+  if ($('optForceDup').checked) {
+    if (DUP.count) h += '<label class="gate"><input type="checkbox" id="gateForce"><span class="tx">我了解：<b>' + esc(DUP.count) + '</b> 个已归档文件会被重新处理，输出目录将产生 <span class="mono">_1/_2</span> 副本（约 ' + esc(fs(DUP.bytes)) + '）。</span></label>';
+    else h += noticeHTML('warn', '本次预览未发现已归档文件，无需勾选「重新处理已归档文件」，请取消勾选后重新扫描。');
+  }
+  $('gatesBox').innerHTML = h;
+  $('gatesBox').hidden = !h;
+  gateMove = $('gateMove'); gateForce = $('gateForce');
+}
+
+/* ════════════════ 开始 / 轮询 / 结束 ════════════════ */
+$('btnStart').onclick = async () => {
+  if ($('btnStart').disabled) return;
+  const force = $('optForceDup').checked;
+  freeze(true);
   const r = await api('start', {source: $('srcPath').value.trim(), output: $('outPath').value.trim(),
     mode: $('optMode').value, brandFolder: $('optBrand').checked, handleJpg: $('optJpg').checked,
     handleVideo: $('optVideo').checked, staging: $('optStaging').checked,
     dupHash: $('optHashFull').checked ? 'full' : 'sampled',
     dupPolicy: force ? 'force' : 'skip', dupGuard: force ? DUP.guard : ''});
   if (!r.ok) {
-    alert((r.code === 'need_confirm' ? '需要重新预览确认：\n\n' : '') + (r.error || '启动失败'));
+    freeze(false);
+    if (r.code === 'need_confirm' || /重新预览/.test(r.error || '')) {
+      invalidate();
+      $('noticeBox').innerHTML = noticeHTML('warn', esc(r.error || '确认凭据已失效，请重新扫描'));
+      renderResult('review'); $('btnStart').hidden = true;
+      setHint('请重新「扫描预览」后再执行');
+    } else {
+      toast(r.error || '启动失败', 'err');
+      setHint('启动失败：' + (r.error || ''));
+    }
     return;
   }
-  tid = r.taskId; $('btnStart').disabled = true; $('btnCancel').disabled = false;
-  $('statusBox').style.display = 'block'; $('logBox').textContent = '';
+  RUN = {tid: r.taskId, output: $('outPath').value.trim()};
+  tid = r.taskId;
+  localStorage.setItem(LS_TASK, JSON.stringify(RUN));
+  enterRun();
   timer = setInterval(poll, 1500); poll();
 };
 
+function enterRun(){
+  STOPPING = false;
+  ETA = [];
+  $('logBox').textContent = '';
+  $('progFill').style.width = '0%';
+  $('nowBox').hidden = true;
+  $('runStats').innerHTML = '';
+  $('stageRow').innerHTML = '';          // 清掉上一任务的阶段条残影（首次 poll 前不显示旧状态）
+  $('progStats').textContent = '';
+  renderResult('run');
+  freeze(true);
+  $('btnCancel').disabled = false;
+  $('btnCancel').textContent = '停止归档';
+  setHint('归档进行中，可关闭页面，任务在后台继续');
+}
+
 async function poll(){
-  const r = await api('status', {taskId: tid, output: $('outPath').value.trim()});
+  if (!RUN) return;
+  const r = await api('status', {taskId: RUN.tid, output: RUN.output});
   if (!r.ok) return;
   const s = r.state;
-  const pct = s.total ? Math.round(s.current/s.total*100) : 0;
-  $('progFill').style.width = pct + '%';
-  $('progText').textContent = s.status + '  ' + s.current + '/' + s.total
-    + ' ｜ 成功 ' + s.success + ' 失败 ' + s.failed
-    + ' ｜ 跳过 ' + s.skipped
-    + (s.skipped_dup ? ('（已归档 ' + s.skipped_dup + (s.skipped_nodate ? '、无日期 ' + s.skipped_nodate : '') + '）')
-                     : (s.skipped_nodate ? ('（无日期 ' + s.skipped_nodate + '）') : ''));
-  $('logBox').textContent = (s.logs||[]).slice(-80).map(l => '[' + l.t + '] ' + (l.msg || l.dst || l.src)).join('\n');
-  $('logBox').scrollTop = $('logBox').scrollHeight;
-  if (['done','error','cancelled','rolled_back'].indexOf(s.status) >= 0) {
-    clearInterval(timer); $('btnCancel').disabled = true; $('btnStart').disabled = false;
-    if (s.status === 'done') {
-      let m = 'RAW 归档完成：成功 ' + s.success + ' 个';
-      if (s.skipped_dup) m += '，跳过 ' + s.skipped_dup + ' 个已归档文件';
-      if (s.skipped_nodate) m += '，跳过 ' + s.skipped_nodate + ' 个无日期文件';
-      if (s.failed) m += '，失败 ' + s.failed + ' 个';
-      alert(m + '。');
+  // 进度
+  const pct = s.total ? Math.min(100, Math.round(s.current/s.total*100)) : 0;
+  const indet = ['pending','resuming','running'].includes(s.status) && !s.current;
+  $('progBar').classList.toggle('indet', indet);
+  $('progFill').style.width = indet ? '' : (pct + '%');
+  // 阶段
+  $('stageRow').innerHTML = stageHTML(s);
+  // 统计
+  const cell = (n, label, title) => '<div class="stat" ' + (title?('title="'+esc(title)+'"'):'') + '><b class="num">' + esc(n) + '</b><u>' + esc(label) + '</u></div>';
+  const skipT = [s.skipped_dup ? ('已归档 ' + s.skipped_dup) : '', s.skipped_nodate ? ('无日期 ' + s.skipped_nodate) : ''].filter(Boolean).join('、');
+  $('runStats').innerHTML = cell(s.current + ' / ' + s.total, '进度')
+    + cell(s.success, '成功') + cell(s.failed, '失败') + cell(s.skipped, '跳过', skipT || '');
+  // 用时 / ETA / 速率
+  const now = Date.now()/1000;
+  if (s.current > 0) { ETA.push([now, s.current]); ETA = ETA.filter(x => now - x[0] <= 45); }
+  const parts = [];
+  const done = ['done','error','cancelled','rolled_back'].includes(s.status);
+  const used = (done && s.finished_at ? s.finished_at : now) - (s.created_at || now);
+  if (s.created_at) parts.push('已用 ' + hms(used));
+  if (!done && ETA.length >= 2) {
+    const [t0, c0] = ETA[0], [t1, c1] = ETA[ETA.length-1];
+    const rate = (c1 - c0) / Math.max(1, t1 - t0);
+    if (rate > 0) {
+      if (s.total > s.current) parts.push('约剩 ' + hms((s.total - s.current)/rate));
+      parts.push((rate*60).toFixed(1) + ' 个/分');
     }
+  }
+  if (skipT) parts.push('跳过：' + skipT);
+  $('progStats').textContent = parts.join(' · ');
+  // 最近处理
+  const logs = s.logs || [];
+  const last = logs[logs.length-1];
+  if (last) {
+    $('nowBox').hidden = false;
+    $('nowSrc').textContent = last.src || '';
+    $('nowSrc').title = last.src || '';
+    const lastOk = [...logs].reverse().find(l => l.status === 'ok' && l.dst);
+    $('nowDst').textContent = lastOk ? ('→ ' + lastOk.dst) : (last.msg || '');
+    $('nowDst').title = $('nowDst').textContent;
+  }
+  // 日志
+  $('logBox').innerHTML = logs.slice(-80).map(l =>
+    '<div class="logline"><time>' + esc(l.t || '') + '</time><i class="ld ' + esc(l.status||'') + '"></i>'
+    + '<span class="tx">' + esc(l.msg || (l.src || '') + (l.dst ? (' → ' + l.dst) : '')) + '</span></div>').join('');
+  $('logBox').scrollTop = $('logBox').scrollHeight;
+
+  if (done) {
+    clearInterval(timer); timer = null;
+    localStorage.removeItem(LS_TASK);
+    freeze(false);
+    showTerminal(s);
   }
 }
 
-$('btnCancel').onclick = async () => { const r = await api('cancel', {taskId: tid, output: $('outPath').value.trim()});
-  if (!r.ok) alert(r.error); };
-$('btnCleanup').onclick = async () => {
-  if (!tid) tid = prompt('输入任务ID（见 <输出目录>/log/ 下日志文件名 rawarchiver_<任务ID>.log）');
-  if (!tid) return;
-  const r = await api('cleanup', {taskId: tid, output: $('outPath').value.trim()});
-  alert(r.ok ? ('已删除 ' + r.deleted + ' 个' + (r.kept && r.kept.length ? ('，保留 ' + r.kept.length + ' 个（大小校验未过）') : '')) : r.error);
+function stageHTML(s){
+  const lg = (s.logs||[]).map(l => l.msg || '');
+  const any = re => lg.some(m => re.test(m));
+  const running = ['pending','resuming','running'].includes(s.status);
+  const segs = [];
+  if (s.staging && s.removable) {
+    segs.push(['暂存到 NAS', running ? (any(/\[暂存\] 完成/) ? 'done' : 'now') : (any(/\[暂存\] 完成/) ? 'done' : '')]);
+  }
+  const stageBlocking = s.staging && s.removable && !any(/\[暂存\] 完成/);
+  if (s.status === 'done') segs.push(['按日期归档','done']);
+  else if (running) segs.push(['按日期归档', stageBlocking ? '' : 'now']);
+  else segs.push(['按日期归档', s.current > 0 ? 'done' : '']);
+  if (s.mode === 'move') {
+    if (any(/\[清源\]/)) segs.push(['清空源','done']);
+    else if (s.status === 'done') segs.push(['清空源未执行','']);
+    else segs.push(['清空源', running && !stageBlocking ? '' : '']);
+  } else {
+    segs.push(['清源（手动）','']);
+  }
+  return segs.map(([name, st]) =>
+    '<div class="stage ' + st + '"><i></i><span>' + esc(name) + '</span></div>').join('');
+}
+
+function showTerminal(s){
+  RESVIEW = 'done';
+  renderResult('done');
+  const okSt = s.status === 'done';
+  $('resTitle').textContent = okSt ? '归档完成' : (s.status === 'cancelled' ? '已取消'
+    : (s.status === 'rolled_back' ? '已回滚' : '出错中断'));
+  const cell = (n, label, cls) => '<div class="cell"><b class="num ' + (cls||'') + '">' + esc(n) + '</b><u>' + esc(label) + '</u></div>';
+  $('doneStats').innerHTML = cell(s.success, '成功', okSt?'':'') + cell(s.failed, '失败', s.failed?'':'')
+    + cell(s.skipped, '跳过', '') + cell(s.total||0, '任务文件', '');
+  const used = s.finished_at && s.created_at ? hms(s.finished_at - s.created_at) : '—';
+  $('doneKv').innerHTML =
+      kv('归档位置', s.output || (RUN && RUN.output) || '—')
+    + kv('运行日志', (s.output || (RUN && RUN.output) || '') + '/log/')
+    + kv('任务ID', s.id || (RUN && RUN.tid) || '—')
+    + kv('耗时', used);
+  function kv(k, v){ return '<div class="kv"><span class="k">' + esc(k) + '</span><span class="v mono" title="' + esc(v) + '">' + esc(v) + '</span></div>'; }
+
+  // 下一步 / 注意事项
+  const N = [];
+  const dupS = s.skipped_dup || 0, nodS = s.skipped_nodate || 0;
+  if (dupS || nodS) N.push(noticeHTML('info', '跳过 ' + esc(s.skipped) + ' 个'
+    + (dupS ? ('：已归档 ' + esc(dupS)) : '') + (nodS ? ((dupS?'、':'：') + '无日期 ' + esc(nodS)) : '') + '。'));
+  if (s.failed) N.push(noticeHTML('dg', '<b>' + esc(s.failed) + ' 个失败</b>：详情见运行日志；修正后重新扫描即可续跑（已归档的会自动跳过）。'));
+  if (s.error && !okSt) N.push(noticeHTML('dg', esc(s.error)));
+  if (okSt && s.mode === 'move')
+    N.push(noticeHTML('info', '移动模式：源文件已按设置清除。若日志提示个别删除失败，请到卡上手动清理。'));
+  if (okSt && s.mode !== 'move')
+    N.push(noticeHTML('ok', '源文件保持不变。确认归档无误后，可在下方「危险操作」中清理源文件释放空间。'));
+  if (s.status === 'cancelled')
+    N.push(noticeHTML('info', '已处理的文件保留在归档目录；重新扫描可继续（已归档的会自动跳过）。'));
+  $('doneNext').innerHTML = N.join('');
+
+  // 危险区
+  const canClean = (s.output || RUN) && (s.success > 0) && (s.mode !== 'move');
+  const box = $('dangerBox');
+  box.hidden = !canClean;
+  if (canClean) {
+    $('tidIn').value = s.id || (RUN && RUN.tid) || '';
+    $('dgNote').textContent = '删除源文件不可回滚。执行前会校验：目标文件存在且大小一致，校验不过的会保留。';
+    $('btnRollback').hidden = s.mode === 'move';
+  }
+  setHint(okSt ? ('归档完成：成功 ' + s.success + ' 个' + (s.failed ? ('，失败 ' + s.failed) : '')) : '任务已结束，点「重新扫描」可继续');
+  $('btnPreview').textContent = '重新扫描';
+  updateLayout();
+}
+
+/* ════════════════ 停止 / 清源 / 回滚 ════════════════ */
+$('btnCancel').onclick = async () => {
+  if (STOPPING || !RUN) return;
+  STOPPING = true;
+  $('btnCancel').disabled = true;
+  $('btnCancel').textContent = '正在停止…';
+  const r = await api('cancel', {taskId: RUN.tid, output: RUN.output});
+  if (!r.ok) { toast(r.error || '取消失败', 'err'); $('btnCancel').disabled = false; $('btnCancel').textContent = '停止归档'; STOPPING = false; }
 };
-$('btnRollback').onclick = async () => {
-  if ($('optMode').value === 'move') { alert('移动模式下源文件已清除，无法回滚，请依靠 输出目录/log/ 下的 _report_*.json 清单处理。'); return; }
-  if (!tid) { alert('请先执行或输入任务ID'); return; }
-  if (!confirm('确认把本任务已归档的文件移回输出目录下的 _restored/ ？')) return;
-  const r = await api('rollback', {taskId: tid, output: $('outPath').value.trim()});
-  alert(r.ok ? ('已还原 ' + r.restored + ' 个到 ' + r.to) : r.error);
+
+function showConfirm(o){
+  $('cfTitle').textContent = o.title;
+  $('cfFact').innerHTML = o.fact;
+  $('cfWhy').textContent = o.why;
+  $('cfHow').textContent = o.how;
+  $('cfOk').textContent = o.ok;
+  $('cfOk').className = 'btn ' + (o.okCls || 'btn-od');
+  $('cfModal').hidden = false;
+  CF_ONOK = o.onOk;
+}
+let CF_ONOK = null;
+$('cfX').onclick = $('cfCancel').onclick = () => { $('cfModal').hidden = true; CF_ONOK = null; };
+$('cfModal').onclick = e => { if (e.target === $('cfModal')) { $('cfModal').hidden = true; CF_ONOK = null; } };
+$('cfOk').onclick = async () => {
+  const f = CF_ONOK; if (!f) return;
+  $('cfOk').disabled = true;
+  try { await f(); } finally { $('cfOk').disabled = false; $('cfModal').hidden = true; CF_ONOK = null; }
 };
+
+$('btnCleanup').onclick = () => {
+  const id = ($('tidIn').value.trim() || (RUN && RUN.tid) || '');
+  const out = ($('outPath').value.trim() || (RUN && RUN.output) || '');
+  if (!id) { toast('缺少任务ID：见 <输出目录>/log/ 下日志文件名', 'err'); return; }
+  if (!out) { toast('缺少输出目录', 'err'); return; }
+  showConfirm({
+    title: '清空源文件',
+    fact: '将对任务 <b>' + esc(id) + '</b> 已归档的文件做校验，并<b>删除通过校验的源文件</b>。',
+    why: '删除前逐个校验：目标文件存在且与源大小一致；校验不过的文件保留并写进日志。',
+    how: '删除不可回滚。文件已归档在 ' + esc(out) + '，仍可自行取回。',
+    ok: '删除源文件',
+    onOk: async () => {
+      const r = await api('cleanup', {taskId: id, output: out});
+      if (r.ok) toast('已删除 ' + r.deleted + ' 个' + (r.kept && r.kept.length ? ('，保留 ' + r.kept.length + ' 个（校验未过）') : ''));
+      else toast(r.error || '操作失败', 'err');
+    }
+  });
+};
+$('btnRollback').onclick = () => {
+  const id = ($('tidIn').value.trim() || (RUN && RUN.tid) || '');
+  const out = ($('outPath').value.trim() || (RUN && RUN.output) || '');
+  if (!id) { toast('缺少任务ID：见 <输出目录>/log/ 下日志文件名', 'err'); return; }
+  showConfirm({
+    title: '回滚本次归档',
+    fact: '将任务 <b>' + esc(id) + '</b> 已归档的文件移回 <span class="mono">' + esc(out) + '/_restored/</span>。',
+    why: '归档落点选错时用。「移动」模式下源已清除、无法回滚，仅「复制」模式可用。',
+    how: '文件从归档路径移到 _restored/（按源相对路径放回），不会丢失。',
+    ok: '移回 _restored/',
+    okCls: 'btn-primary',
+    onOk: async () => {
+      if ($('optMode').value === 'move') { toast('移动模式下源文件已清除，无法回滚', 'err'); return; }
+      const r = await api('rollback', {taskId: id, output: out});
+      if (r.ok) toast('已还原 ' + r.restored + ' 个到 ' + r.to);
+      else toast(r.error || '操作失败', 'err');
+    }
+  });
+};
+
+/* ════════════════ 设备识别 ════════════════ */
+async function pollDevices(){
+  await MODE_READY;
+  if (MODE !== 'fnos-gateway') { $('devStrip').hidden = true; return; }
+  if ($('srcPath').value.trim()) { $('devStrip').hidden = true; return; }
+  const r = await api('devices');
+  if (!r.ok || !(r.list||[]).length) { $('devStrip').hidden = true; return; }
+  const list = r.list;
+  $('devTitle').textContent = '已识别到 ' + list.length + ' 个可移动设备';
+  const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M7.5 5v3h9V5"/><path d="M12 12v5"/></svg>';
+  $('devList').innerHTML = list.map((d, i) =>
+    '<div class="devrow" data-i="' + i + '">' + ICON
+    + '<span class="nm" title="' + esc(d.label || d.path) + '">' + esc(d.label || d.path) + '</span>'
+    + '<span class="pt" title="' + esc(d.path) + '">' + esc(d.path) + '</span>'
+    + '<span class="ct">' + (d.files ? esc(d.files) + ' 个可归档文件' : '未发现可归档文件') + '</span>'
+    + '<button type="button" class="btn btn-sm btn-ghost" data-pick="' + i + '">就用这张卡</button></div>').join('');
+  $('devList').querySelectorAll('[data-pick]').forEach(btn => {
+    btn.onclick = () => {
+      const d = list[+btn.dataset.pick];
+      $('srcPath').value = d.path;
+      $('srcHint').textContent = '已选择：' + d.path;
+      $('srcHint').className = 'aux ok';
+      save(); invalidate();
+    };
+  });
+  $('devStrip').hidden = false;
+}
+
+/* ════════════════ 自检 / 台账 ════════════════ */
+let DOC = null;
+async function runDoctor(){
+  $('dotTx').textContent = '自检中…'; $('dotMark').className = 'dot';
+  const r = await api('doctor');
+  const p = (r && r.result) || null;
+  if (!r.ok || !p) {
+    $('dotMark').className = 'dot warn'; $('dotTx').textContent = '自检不可用';
+    $('docNotice').innerHTML = noticeHTML('warn', '当前运行模式不支持自检（仅 fnOS 版提供完整自检）。');
+    $('docBox').innerHTML = '';
+    return;
+  }
+  DOC = p;
+  const et = p.exiftool, perl = p.perl;
+  const photoOK = p.exifread || p.pillow || (et && perl);
+  $('dotMark').className = 'dot ' + (photoOK ? 'ok' : 'warn');
+  $('dotTx').textContent = photoOK ? '自检通过' : '自检有警告';
+  const row = (st, name, ds) => '<div class="doc-row"><span class="st ' + st + '"></span><span class="nm">' + esc(name) + '</span><span class="ds">' + ds + '</span></div>';
+  $('docBox').innerHTML =
+      row(et ? 'ok' : 'warn', 'ExifTool', et ? ('已就位 <span class="mono">' + esc(et) + '</span>') : '未找到：视频日期会退化为文件时间')
+    + row(perl ? 'ok' : 'warn', 'Perl 运行时', perl ? '可用（ExifTool 依赖）' : '缺失：ExifTool 可能无法运行')
+    + row(p.exifread ? 'ok' : 'warn', 'exifread', p.exifread ? '可用：照片 EXIF 读取（纯 Python）' : '不可用：照片日期将走 ExifTool 批量解析')
+    + row(p.pillow ? 'ok' : 'warn', 'Pillow', p.pillow ? '可用：图片解析备选' : '不可用（不影响核心流程）')
+    + row('', '运行环境', 'Python <span class="mono">' + esc(p.python || '—') + '</span>')
+    + row('', '归档台账', '<span class="mono">' + esc(p.ledger || '—') + '</span>')
+    + row('', '应用版本', 'v' + esc(p.version || '—'));
+  let n;
+  if (!p.exifread && !p.pillow && !(et && perl)) n = noticeHTML('dg', '照片拍摄日期解析全部不可用：照片会被跳过。请重新安装应用或检查 Perl / ExifTool。');
+  else if (et && !perl) n = noticeHTML('warn', 'ExifTool 缺少 Perl 运行时，可能无法工作；视频日期与照片批量解析会受影响。');
+  else n = noticeHTML('ok', '自检通过：照片按 EXIF、视频按内嵌时间 / 文件时间归档。');
+  $('docNotice').innerHTML = n;
+}
+$('docRefresh').onclick = runDoctor;
+
+$('btnLedger').onclick = async () => {
+  const out = $('outPath').value.trim();
+  const r = await api('ledger', {op: 'stats', output: out});
+  const box = $('ledgerOut');
+  box.hidden = false;
+  box.textContent = (r && (r.ok === false)) ? (r.error || '查询失败') : JSON.stringify(r, null, 2);
+};
+
+/* ════════════════ 页签 ════════════════ */
+function switchTab(which){
+  const work = which === 'work';
+  $('tabWork').setAttribute('aria-selected', work ? 'true' : 'false');
+  $('tabMaint').setAttribute('aria-selected', work ? 'false' : 'true');
+  $('viewWork').hidden = !work;
+  $('viewMaint').hidden = work;
+  $('footNote').hidden = !work;
+  updateLayout();
+  if (!work) runDoctor();
+}
+$('tabWork').onclick = () => switchTab('work');
+$('tabMaint').onclick = () => switchTab('maint');
+$('docDot').onclick = () => switchTab('maint');
+
+/* ════════════════ 断点续看 / 启动 ════════════════ */
+(async () => {
+  // 刷新页面后接回后台任务
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_TASK) || 'null');
+    if (saved && saved.tid && saved.output) {
+      const r = await api('status', {taskId: saved.tid, output: saved.output});
+      if (r.ok && ['pending','resuming','running'].includes(r.state.status)) {
+        RUN = {tid: saved.tid, output: saved.output}; tid = saved.tid;
+        enterRun();
+        timer = setInterval(poll, 1500); poll();
+      } else if (r.ok && r.state.status === 'done') {
+        RUN = {tid: saved.tid, output: saved.output}; tid = saved.tid;
+        localStorage.removeItem(LS_TASK);
+        updateLayout(); showTerminal(r.state);
+      } else {
+        localStorage.removeItem(LS_TASK);
+        updateLayout();
+      }
+    } else updateLayout();
+  } catch(e) { updateLayout(); }
+  runDoctor();
+  setInterval(() => { if (!$('viewWork').hidden && !$('srcPath').value.trim() && RESVIEW !== 'run') pollDevices(); }, 6000);
+  pollDevices();
+})();
+
+/* ── 调试出口（只读；供控制台/自动化检查页面内部状态，不含敏感数据） ── */
+window.__RA = {get MODE(){return MODE;}, get PV(){return PV;}, get RUN(){return RUN;},
+  get RESVIEW(){return RESVIEW;}, get DUP(){return DUP;},
+  pollDevices, runDoctor, check, renderResult, showTerminal, toast, showConfirm, scanBody, api, setHint,
+  openDirPicker, loadDir};
 </script>
 </body>
 </html>

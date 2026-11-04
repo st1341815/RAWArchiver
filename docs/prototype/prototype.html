@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<title>RAW 归档 · UI 高保真原型</title>
+<style>
+:root{
+  --ra-font-ui:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei UI","Microsoft YaHei","Source Han Sans SC","Noto Sans CJK SC","Segoe UI",system-ui,sans-serif;
+  --ra-font-mono:ui-monospace,"SF Mono",Consolas,"Liberation Mono","DejaVu Sans Mono",monospace;
+  --ra-fs-11:11px;--ra-lh-11:1.45;--ra-fs-12:12px;--ra-lh-12:1.55;--ra-fs-13:13px;--ra-lh-13:1.6;
+  --ra-fs-14:14px;--ra-lh-14:1.65;--ra-fs-16:16px;--ra-lh-16:1.5;--ra-fs-20:20px;--ra-lh-20:1.35;
+  --ra-fs-30:30px;--ra-lh-30:1.25;
+  --ra-sp-1:4px;--ra-sp-2:8px;--ra-sp-3:12px;--ra-sp-4:16px;--ra-sp-5:24px;--ra-sp-6:32px;--ra-sp-7:48px;--ra-sp-8:64px;
+  --ra-r-chip:999px;--ra-r-1:6px;--ra-r-2:10px;--ra-r-3:14px;--ra-bw:1px;
+  --ra-sh-0:none;--ra-sh-1:0 1px 2px rgba(18,22,20,.06);--ra-sh-2:0 6px 18px -6px rgba(18,22,20,.18);--ra-sh-3:0 18px 48px -12px rgba(18,22,20,.28);
+  --ra-t-fast:120ms;--ra-t-base:180ms;--ra-t-slow:240ms;--ra-t-progress:400ms;--ra-ease:cubic-bezier(.2,0,0,1);
+  --ra-bg:#F5F6F4;--ra-surface:#FFFFFF;--ra-surface2:#FAFBFA;
+  --ra-line:#E2E5E1;--ra-line-strong:#CBD2CC;
+  --ra-ink:#16201C;--ra-ink-2:#4B554F;--ra-ink-3:#656F69;
+  --ra-brand:#1F7A5F;--ra-brand-hover:#1A6B53;--ra-brand-active:#14563F;--ra-brand-text:#175C46;--ra-brand-soft:#E7F3EE;--ra-brand-ink:#FFFFFF;
+  --ra-ok:#1E6B3C;--ra-ok-soft:#EAF4EE;--ra-warn:#8A5A00;--ra-warn-soft:#FFF4E0;
+  --ra-danger:#B3261E;--ra-danger-soft:#FBEDE7;--ra-danger-text:#7A2E14;
+  --ra-info:#1D5FA8;--ra-info-soft:#E8F0FA;
+  --ra-log-ink:#2A2F2C;--ra-log-bg:#E9EBE8;--ra-neutral-soft:#F0F2EF;
+  --ra-conf-a-ink:#175C46;--ra-conf-a-bg:#E7F3EE;--ra-conf-b-ink:#8A5A00;--ra-conf-b-bg:#FFF4E0;
+  --ra-conf-c-ink:#7A2E14;--ra-conf-c-bg:#FBEDE7;--ra-conf-skip-ink:#4B554F;--ra-conf-skip-bg:#F0F2EF;
+}
+[data-theme="dark"]{
+  --ra-bg:#121614;--ra-surface:#1A1F1C;--ra-surface2:#212723;
+  --ra-line:#2C342F;--ra-line-strong:#3A443E;
+  --ra-ink:#ECF1ED;--ra-ink-2:#B4BDB7;--ra-ink-3:#8B958F;
+  --ra-brand:#45C09A;--ra-brand-hover:#5AD4AE;--ra-brand-active:#3AAE8B;--ra-brand-text:#8FE0C2;--ra-brand-soft:#0F2A22;--ra-brand-ink:#08221A;
+  --ra-ok:#62C88A;--ra-ok-soft:#10241A;--ra-warn:#E7B34B;--ra-warn-soft:#241C0C;
+  --ra-danger:#F2716B;--ra-danger-soft:#2A1810;--ra-danger-text:#F0A587;
+  --ra-info:#6FB3F2;--ra-info-soft:#0F1E2E;
+  --ra-log-ink:#D7E3DB;--ra-log-bg:#212723;--ra-neutral-soft:#2C342F;
+  --ra-conf-a-ink:#8FE0C2;--ra-conf-a-bg:#0F2A22;--ra-conf-b-ink:#E7B34B;--ra-conf-b-bg:#241C0C;
+  --ra-conf-c-ink:#F0A587;--ra-conf-c-bg:#2A1810;--ra-conf-skip-ink:#B4BDB7;--ra-conf-skip-bg:#2C342F;
+  --ra-sh-1:0 1px 2px rgba(0,0,0,.4);--ra-sh-2:0 6px 18px -6px rgba(0,0,0,.55);--ra-sh-3:0 18px 48px -12px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+body{margin:0;padding:0;background:var(--ra-bg);font-family:var(--ra-font-ui);
+  font-size:var(--ra-fs-14);line-height:var(--ra-lh-14);color:var(--ra-ink);display:block}
+[data-screen][hidden]{display:none!important}
+
+.win{width:100%;background:var(--ra-bg);min-height:880px;display:flex;flex-direction:column}
+
+.hdr{height:56px;flex:0 0 56px;border-bottom:1px solid var(--ra-line);background:var(--ra-surface)}
+.hdr-in{max-width:900px;width:100%;height:100%;margin:0 auto;padding:0 var(--ra-sp-4);
+  display:flex;align-items:center;gap:var(--ra-sp-4)}
+.logo{width:26px;height:26px;border-radius:7px;background:var(--ra-brand);flex:0 0 auto;
+  display:grid;place-items:center}
+.logo svg{width:16px;height:16px}
+.hdr h1{margin:0;font-size:var(--ra-fs-20);line-height:1;font-weight:600;white-space:nowrap}
+.tabs{margin-inline-start:auto;display:flex;gap:2px;background:var(--ra-surface2);
+  border:1px solid var(--ra-line);border-radius:8px;padding:3px}
+.tab{flex:0 0 auto;white-space:nowrap;font-size:var(--ra-fs-13);font-weight:500;
+  padding:6px 14px;border-radius:6px;color:var(--ra-ink-2);cursor:pointer;border:0;background:transparent}
+.tab[aria-selected="true"]{background:var(--ra-surface);color:var(--ra-ink);font-weight:600;box-shadow:var(--ra-sh-1)}
+.hdr-r{display:flex;align-items:center;gap:var(--ra-sp-2);flex:0 0 auto;font-size:var(--ra-fs-12);color:var(--ra-ink-3);white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:99px;background:var(--ra-ok);flex:0 0 auto}
+
+.body{flex:1 1 auto;display:flex;flex-direction:column;padding:var(--ra-sp-4);gap:var(--ra-sp-4);
+  position:relative;max-width:900px;width:100%;margin:0 auto}
+
+.ra-card{background:var(--ra-surface);border:1px solid var(--ra-line);border-radius:var(--ra-r-2);
+  padding:var(--ra-sp-4)}
+.card-h{display:flex;align-items:center;gap:var(--ra-sp-2);margin:0 0 var(--ra-sp-3)}
+.card-h .idx{font-size:var(--ra-fs-11);font-weight:600;color:var(--ra-brand-text);
+  background:var(--ra-brand-soft);border-radius:var(--ra-r-chip);padding:2px 7px;flex:0 0 auto}
+.card-h h2{margin:0;font-size:var(--ra-fs-16);line-height:1;font-weight:600;white-space:nowrap}
+.card-h .right{margin-inline-start:auto;display:flex;gap:var(--ra-sp-2);align-items:center;flex:0 0 auto}
+
+.ra-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;
+  padding:0 var(--ra-sp-4);border-radius:var(--ra-r-1);border:1px solid transparent;
+  font:600 var(--ra-fs-14)/1 var(--ra-font-ui);white-space:nowrap;cursor:pointer;
+  transition:background var(--ra-t-fast) var(--ra-ease),border-color var(--ra-t-fast) var(--ra-ease)}
+.ra-btn svg{width:15px;height:15px;flex:0 0 auto}
+.ra-btn--primary{background:var(--ra-brand);color:var(--ra-brand-ink);min-height:40px;padding:0 var(--ra-sp-5)}
+.ra-btn--danger{background:var(--ra-danger);color:#fff;min-height:40px;padding:0 var(--ra-sp-5)}
+[data-theme="dark"] .ra-btn--danger{color:#2A0E0B}
+.ra-btn--ghost{background:transparent;color:var(--ra-ink-2);border-color:var(--ra-line-strong)}
+.ra-btn--od{background:transparent;color:var(--ra-danger);border-color:var(--ra-danger)}
+.ra-btn--text{background:transparent;color:var(--ra-brand-text);min-height:32px;padding:0 var(--ra-sp-2)}
+.ra-btn--sm{min-height:30px;font-size:var(--ra-fs-13);padding:0 var(--ra-sp-3);border-radius:var(--ra-r-1)}
+
+.field{display:flex;align-items:center;gap:var(--ra-sp-2)}
+.field label{flex:0 0 auto;white-space:nowrap;font-weight:600;min-width:5.5em}
+.inp{flex:1 1 auto;min-width:0;height:36px;display:flex;align-items:center;padding:0 var(--ra-sp-3);
+  background:var(--ra-surface);color:var(--ra-ink);border:1px solid var(--ra-line-strong);
+  border-radius:var(--ra-r-1);font:400 var(--ra-fs-13)/1.4 var(--ra-font-mono);white-space:nowrap;overflow:hidden}
+.inp.focus{border-color:var(--ra-brand);outline:2px solid var(--ra-brand-soft);outline-offset:0}
+.aux{min-height:20px;margin:4px 0 0;font-size:var(--ra-fs-13);line-height:1.4;color:var(--ra-ink-3);
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.aux .sep{color:var(--ra-line-strong)}
+.aux svg{width:13px;height:13px;flex:0 0 auto}
+
+.chk{display:flex;align-items:center;gap:8px;font-size:var(--ra-fs-14);padding:5px 0;white-space:nowrap}
+.box{width:16px;height:16px;flex:0 0 auto;border:1.5px solid var(--ra-line-strong);border-radius:4px;
+  display:grid;place-items:center;background:var(--ra-surface)}
+.box.on{background:var(--ra-brand);border-color:var(--ra-brand)}
+.box.on svg{width:11px;height:11px;color:var(--ra-brand-ink)}
+.box.sq{border-radius:4px}
+.radio{width:15px;height:15px;border-radius:99px;border:1.5px solid var(--ra-line-strong);flex:0 0 auto;
+  display:grid;place-items:center;background:var(--ra-surface)}
+.radio.on{border-color:var(--ra-brand)}
+.radio.on::after{content:"";width:7px;height:7px;border-radius:99px;background:var(--ra-brand)}
+.group{border-top:1px dashed var(--ra-line);margin:var(--ra-sp-3) 0 0;padding-top:var(--ra-sp-3)}
+.group:first-of-type{border-top:0;margin-top:0;padding-top:0}
+.glabel{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:2px}
+.glabel span{flex:0 0 auto;white-space:nowrap}
+
+.badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:99px;
+  font-size:var(--ra-fs-11);line-height:1;font-weight:500;white-space:nowrap}
+.b-a{color:var(--ra-conf-a-ink);background:var(--ra-conf-a-bg)}
+.b-b{color:var(--ra-conf-b-ink);background:var(--ra-conf-b-bg)}
+.b-c{color:var(--ra-conf-c-ink);background:var(--ra-conf-c-bg)}
+.b-s{color:var(--ra-conf-skip-ink);background:var(--ra-conf-skip-bg)}
+.b-ok{color:var(--ra-ok);background:var(--ra-ok-soft)}
+.b-warn{color:var(--ra-warn);background:var(--ra-warn-soft)}
+.b-dg{color:var(--ra-danger);background:var(--ra-danger-soft)}
+
+.stats{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--ra-line);
+  border-radius:var(--ra-r-1);overflow:hidden;background:var(--ra-surface2)}
+.stat{padding:10px 12px;border-inline-end:1px solid var(--ra-line)}
+.stat:last-child{border-inline-end:0}
+.stat b{display:block;font-size:24px;font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat u{display:block;text-decoration:none;font-size:var(--ra-fs-12);color:var(--ra-ink-3);white-space:nowrap;margin-top:2px}
+
+.bar{height:6px;border-radius:99px;background:var(--ra-line);overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th{font-size:var(--ra-fs-11);font-weight:500;color:var(--ra-ink-3);text-align:start;
+  padding:0 8px 6px;border-bottom:1px solid var(--ra-line);white-space:nowrap}
+td{padding:7px 8px;font-size:var(--ra-fs-13);border-bottom:1px solid var(--ra-line);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+tr:last-child td{border-bottom:0}
+.mono{font-family:var(--ra-font-mono);font-size:var(--ra-fs-12)}
+.num{font-variant-numeric:tabular-nums}
+
+.log{background:var(--ra-log-bg);border-radius:var(--ra-r-1);padding:8px 10px;
+  font-family:var(--ra-font-mono);font-size:var(--ra-fs-12);line-height:1.5;color:var(--ra-log-ink)}
+.logline{display:flex;gap:8px;align-items:baseline;white-space:nowrap;overflow:hidden}
+.logline time{color:var(--ra-ink-3);flex:0 0 auto}
+.ld{width:6px;height:6px;border-radius:99px;flex:0 0 auto;position:relative;top:-1px}
+.ld.ok{background:var(--ra-ok)}.ld.warn{background:var(--ra-warn)}.ld.bad{background:var(--ra-danger)}
+.ld.n{background:var(--ra-ink-3)}
+.logline .tx{overflow:hidden;text-overflow:ellipsis}
+
+.sticky{margin-top:auto;margin-inline:calc(-1 * var(--ra-sp-4));margin-bottom:calc(-1 * var(--ra-sp-4));
+  padding:12px var(--ra-sp-4);border-top:1px solid var(--ra-line);background:var(--ra-surface);
+  display:flex;align-items:center;gap:var(--ra-sp-3);position:sticky;bottom:0}
+.sticky .hint{font-size:var(--ra-fs-12);color:var(--ra-ink-3);white-space:nowrap}
+.sticky .acts{margin-inline-start:auto;display:flex;gap:var(--ra-sp-2);align-items:center}
+
+.seg{display:flex;align-items:center;gap:var(--ra-sp-2);font-size:var(--ra-fs-13)}
+.stage-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.stage{display:flex;align-items:center;gap:7px;font-size:var(--ra-fs-13);white-space:nowrap;color:var(--ra-ink-3)}
+.stage i{width:9px;height:9px;border-radius:99px;border:1.5px solid var(--ra-line-strong);flex:0 0 auto}
+.stage.done{color:var(--ra-ink-2)}.stage.done i{background:var(--ra-ok);border-color:var(--ra-ok)}
+.stage.now{color:var(--ra-ink);font-weight:600}.stage.now i{background:var(--ra-brand);border-color:var(--ra-brand);box-shadow:0 0 0 3px var(--ra-brand-soft)}
+
+.pbar{height:8px;border-radius:99px;background:var(--ra-line);overflow:hidden;position:relative}
+.pbar i{position:absolute;inset:0 auto 0 0;background:var(--ra-brand);border-radius:99px;transition:width var(--ra-t-progress) linear}
+
+.line{display:flex;align-items:baseline;gap:var(--ra-sp-3);flex-wrap:wrap}
+.line .big{font-size:var(--ra-fs-30);font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lbl{font-size:var(--ra-fs-12);color:var(--ra-ink-3);white-space:nowrap}
+
+.notice{border-radius:var(--ra-r-1);padding:9px 12px;font-size:var(--ra-fs-13);line-height:1.5;
+  display:flex;gap:8px;align-items:flex-start}
+.notice svg{width:15px;height:15px;flex:0 0 auto;margin-top:1px}
+.notice.warn{background:var(--ra-warn-soft);color:var(--ra-warn)}
+.notice.info{background:var(--ra-info-soft);color:var(--ra-info)}
+.notice.dg{background:var(--ra-danger-soft);color:var(--ra-danger)}
+
+.danger{border-inline-start:3px solid var(--ra-danger);padding-inline-start:var(--ra-sp-3)}
+.danger h3{margin:0 0 4px;font-size:var(--ra-fs-13);font-weight:600;color:var(--ra-danger);white-space:nowrap}
+
+.ghost-row{background:var(--ra-surface2);border:1px dashed var(--ra-line-strong);border-radius:var(--ra-r-2);
+  padding:10px 12px;display:flex;align-items:center;gap:10px;font-size:var(--ra-fs-13);color:var(--ra-ink-2)}
+.ghost-row .acts{margin-inline-start:auto;display:flex;gap:6px;flex:0 0 auto}
+
+.emptybox{text-align:center;padding:var(--ra-sp-5) 0;color:var(--ra-ink-3);font-size:var(--ra-fs-13)}
+.emptybox .big{font-size:var(--ra-fs-14);color:var(--ra-ink-2);margin-bottom:2px}
+
+.center{text-align:center;padding:var(--ra-sp-6) var(--ra-sp-5)}
+.center h2{margin:14px 0 6px;font-size:var(--ra-fs-20);font-weight:600;line-height:1.35}
+.center p{margin:0;font-size:var(--ra-fs-14);color:var(--ra-ink-2);line-height:1.7}
+.illus{width:96px;height:96px;margin:0 auto;border-radius:24px;background:var(--ra-brand-soft);
+  display:grid;place-items:center;color:var(--ra-brand-text)}
+.illus svg{width:44px;height:44px}
+
+.devrow{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--ra-line);
+  border-radius:var(--ra-r-1);background:var(--ra-surface)}
+.devrow .nm{font-weight:600;white-space:nowrap}
+.devrow .pt{font-family:var(--ra-font-mono);font-size:var(--ra-fs-12);color:var(--ra-ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;min-width:0}
+.devrow .ct{font-size:var(--ra-fs-12);color:var(--ra-ink-2);white-space:nowrap;flex:0 0 auto}
+
+.kv{display:flex;gap:10px;font-size:var(--ra-fs-13);padding:3px 0;flex-wrap:wrap}
+.kv .k{flex:0 0 auto;color:var(--ra-ink-3);min-width:4.5em;white-space:nowrap}
+.kv .v{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.drawer-wrap{position:absolute;inset:0;display:flex;justify-content:flex-end}
+.scrim{position:absolute;inset:0;background:rgba(18,22,20,.32)}
+.drawer{position:relative;width:420px;background:var(--ra-surface);box-shadow:var(--ra-sh-3);
+  display:flex;flex-direction:column;border-inline-start:1px solid var(--ra-line)}
+.drawer .dh{height:52px;flex:0 0 52px;display:flex;align-items:center;gap:8px;padding:0 var(--ra-sp-4);
+  border-bottom:1px solid var(--ra-line);font-weight:600;white-space:nowrap}
+.drawer .dh .x{margin-inline-start:auto;border:0;background:transparent;color:var(--ra-ink-3);cursor:pointer;font-size:18px;line-height:1}
+.drawer .dc{flex:1 1 auto;padding:var(--ra-sp-4);display:flex;flex-direction:column;gap:var(--ra-sp-3);overflow:auto}
+.drawer .df{flex:0 0 auto;padding:var(--ra-sp-4);border-top:1px solid var(--ra-line)}
+.switch{width:34px;height:20px;border-radius:99px;background:var(--ra-line-strong);position:relative;flex:0 0 auto}
+.switch.on{background:var(--ra-brand)}
+.switch i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:99px;background:#fff;transition:left var(--ra-t-base) var(--ra-ease)}
+.switch.on i{left:16px}
+</style>
+</head>
+<body>
+<div class="win" id="win">
+
+  <header class="hdr">
+   <div class="hdr-in">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" style="color:var(--ra-brand-ink)">
+        <rect x="4" y="6.5" width="11" height="11" rx="2"/><path d="M9 3.5h11v11"/><path d="M9.5 14l2.4-2.6 2.1 2.1"/>
+      </svg>
+    </div>
+    <h1>RAW 归档</h1>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="workbench" aria-selected="true">工作台</button>
+      <button class="tab" role="tab" data-tab="tasks">任务</button>
+      <button class="tab" role="tab" data-tab="maint">维护</button>
+    </div>
+    <div class="hdr-r"><span class="dot"></span>自检通过</div>
+   </div>
+  </header>
+
+  <main class="body">
+
+    <!-- ===================== 屏 1：空状态 EMPTY ===================== -->
+    <section data-screen="empty" hidden style="display:flex;flex-direction:column;flex:1">
+      <div class="center">
+        <div class="illus">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+            <rect x="6" y="13" width="20" height="22" rx="3"/>
+            <path d="M11 18h10M11 23h6"/>
+            <rect x="32" y="14" width="10" height="7" rx="1.5"/><rect x="32" y="24" width="10" height="7" rx="1.5"/>
+            <path d="M26 24h6"/>
+          </svg>
+        </div>
+        <h2>把卡插上，我来归档</h2>
+        <p>我会按照片里记录的拍摄日期，把它们整理进 NAS 的「年/月/日」目录。<br>源目录只读，我不会在卡上留下任何文件。</p>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:20px">
+          <button class="ra-btn ra-btn--primary">选择源目录</button>
+        </div>
+        <button class="ra-btn ra-btn--text" style="margin-top:4px">手动输入路径</button>
+      </div>
+
+      <div style="border-top:1px solid var(--ra-line);padding-top:var(--ra-sp-4);margin-top:auto">
+        <div class="aux" style="margin-bottom:8px">已识别到 1 个可移动设备</div>
+        <div class="devrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" style="width:18px;height:18px;color:var(--ra-ink-3);flex:0 0 auto">
+            <rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h5"/>
+          </svg>
+          <span class="nm">MassStorageClass</span>
+          <span class="pt">/vol00/MassStorageClass</span>
+          <span class="ct">248 个文件</span>
+          <button class="ra-btn ra-btn--ghost ra-btn--sm">就用这张卡</button>
+        </div>
+        <div class="aux" style="margin-top:10px;color:var(--ra-ink-3)">还没有设置归档落点
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          <button class="ra-btn ra-btn--text" style="min-height:auto;padding:0">现在设置</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== 屏 2：工作台 READY ===================== -->
+    <section data-screen="ready" hidden style="display:flex;flex-direction:column;flex:1;gap:var(--ra-sp-4)">
+      <div class="ghost-row">
+        <span style="white-space:nowrap">最近一次 · 10-20 09:12 · 124 张 / 3.4 GB · 完成</span>
+        <span style="color:var(--ra-ink-3);font-size:var(--ra-fs-12);white-space:nowrap">这张卡现在已清空</span>
+        <div class="acts">
+          <button class="ra-btn ra-btn--text ra-btn--sm">查看记录</button>
+          <button class="ra-btn ra-btn--ghost ra-btn--sm">再来一次</button>
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="card-h"><span class="idx">①</span><h2>源</h2></div>
+        <div class="field">
+          <label>源目录 *</label>
+          <div class="inp focus">/vol00/MassStorageClass/DCIM</div>
+          <button class="ra-btn ra-btn--ghost">选择…</button>
+        </div>
+        <div class="aux">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ra-ok)"><path d="M4 12.5l5 5L20 6.5"/></svg>
+          已识别为可移动设备<span class="sep">·</span>248 个可归档文件
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="card-h"><span class="idx">②</span><h2>目标</h2></div>
+        <div class="field">
+          <label>归档到 *</label>
+          <div class="inp">/volume1/photos/Camera</div>
+          <button class="ra-btn ra-btn--ghost">浏览…</button>
+        </div>
+        <div class="aux">可写<span class="sep">·</span>上次用过<span class="sep">·</span>剩余 214 GB</div>
+      </div>
+
+      <div class="ra-card">
+        <div class="card-h"><span class="idx">③</span><h2>整理方式</h2></div>
+
+        <div class="group">
+          <div class="glabel"><span>目录结构</span></div>
+          <div class="seg" style="gap:20px">
+            <div class="chk"><i class="radio on"></i>按日期 YYYYMMDD/</div>
+            <div class="chk"><i class="radio"></i>按日期 + 月份</div>
+          </div>
+          <div class="seg" style="margin-top:2px">
+            <div class="chk"><i class="box on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></i>再按相机品牌分层</div>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="glabel"><span>包含</span></div>
+          <div class="seg" style="gap:20px">
+            <div class="chk"><i class="box on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></i>RAW</div>
+            <div class="chk"><i class="box on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></i>JPG</div>
+            <div class="chk"><i class="box on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></i>视频</div>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="glabel"><span>重复处理</span></div>
+          <div class="seg" style="gap:20px">
+            <div class="chk"><i class="radio on"></i>跳过已归档的<span style="color:var(--ra-ink-3);font-size:var(--ra-fs-12)">（推荐）</span></div>
+            <div class="chk"><i class="radio"></i>重新处理并生成副本</div>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="glabel"><span>高级</span></div>
+          <div class="seg"><i class="switch on"><i></i></i><span style="white-space:nowrap">先拷到 NAS 暂存再归档</span>
+            <span style="color:var(--ra-ink-3);font-size:var(--ra-fs-12);white-space:nowrap">读卡更稳，占 NAS 空间</span></div>
+          <div class="seg" style="margin-top:4px"><i class="box"></i><span style="white-space:nowrap">全文件校验</span>
+            <span style="color:var(--ra-ink-3);font-size:var(--ra-fs-12);white-space:nowrap">极慢，只在怀疑重复时用</span></div>
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="card-h"><span class="idx">④</span><h2>扫描结论</h2></div>
+        <div class="emptybox">
+          <div class="big">还没有扫描。</div>
+          点「扫描这张卡」先看一眼会发生什么。
+        </div>
+      </div>
+
+      <div class="sticky">
+        <span class="hint">源目录只读，扫描不会改动卡上任何文件</span>
+        <div class="acts">
+          <button class="ra-btn ra-btn--ghost">重新扫描</button>
+          <button class="ra-btn ra-btn--primary">扫描这张卡
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== 屏 3：预览确认 REVIEWED ===================== -->
+    <section data-screen="reviewed" hidden style="display:flex;flex-direction:column;flex:1;gap:var(--ra-sp-4)">
+      <div class="ra-card">
+        <div class="card-h"><span class="idx">④</span><h2>扫描结论</h2>
+          <div class="right"><span class="lbl">248 个文件 · 12.4 GB · 2024-05-01 ~ 2026-10-18</span></div>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><b>121</b><u>新文件 · 将归档</u></div>
+          <div class="stat"><b>124</b><u>已归档 · 会跳过</u></div>
+          <div class="stat"><b>3</b><u>待校验 · 逐张核对</u></div>
+          <div class="stat"><b>0</b><u>同名冲突 · 会加 _1</u></div>
+          <div class="stat"><b>0</b><u>无日期 · 会跳过</u></div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+          <span class="lbl" style="flex:0 0 auto">拍摄日期来源</span>
+          <div class="bar" style="flex:1 1 auto">
+            <i style="width:92%;background:var(--ra-ok)"></i>
+            <i style="width:8%;background:var(--ra-warn)"></i>
+          </div>
+          <span class="lbl" style="flex:0 0 auto">高置信 228 · 中 17 · 低 0</span>
+        </div>
+
+        <div class="notice warn" style="margin-top:12px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v5"/><circle cx="12" cy="16.5" r="1.1" fill="currentColor" stroke="none"/><path d="M12 3.5L21 20H3z"/></svg>
+          <span>这张卡处理过：2026-10-20 09:12，124 个文件已归档（3.4 GB）。默认跳过它们，只处理新的 121 个。想重建结构？改「重复处理」。</span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;margin:var(--ra-sp-4) 0 6px">
+          <h2 style="margin:0;font-size:var(--ra-fs-14);font-weight:600;white-space:nowrap">文件清单</h2>
+          <span class="lbl">共 248，显示前 500</span>
+          <button class="ra-btn ra-btn--text ra-btn--sm" style="margin-inline-start:auto">展开
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </div>
+        <table>
+          <thead><tr><th style="width:34%">源文件</th><th style="width:12%">拍摄日期</th><th style="width:13%">日期来源</th><th style="width:33%">归档到</th><th style="width:8%">判定</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">IMG_0001.CR3</td><td class="num">2024-05-06</td><td><span class="badge b-a">EXIF</span></td><td class="mono">20240506/IMG_0001.CR3</td><td><span class="badge b-ok">归档</span></td></tr>
+            <tr><td class="mono">VID_0002.MP4</td><td class="num">2024-05-07</td><td><span class="badge b-b">ExifTool</span></td><td class="mono">20240507/VID_0002.MP4</td><td><span class="badge b-ok">归档</span></td></tr>
+            <tr><td class="mono">IMG_0003.JPG</td><td class="num">2024-05-07</td><td><span class="badge b-c">文件时间</span></td><td class="mono">20240507/IMG_0003.JPG</td><td><span class="badge b-ok">归档</span></td></tr>
+            <tr><td class="mono">IMG_0004.CR3</td><td style="color:var(--ra-ink-3)">—</td><td><span class="badge b-s">跳过</span></td><td style="color:var(--ra-ink-3)">不归档</td><td><span class="badge b-s">跳过</span></td></tr>
+            <tr><td class="mono">IMG_0186.CR3</td><td class="num">2026-10-18</td><td><span class="badge b-a">EXIF</span></td><td class="mono">20261018/IMG_0186.CR3</td><td><span class="badge b-s">已存在</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="ra-card" style="padding-block:12px">
+        <div class="kv"><span class="k">模式</span><span class="v" style="font-weight:600">移动 —— 归档完成后清空这张卡</span></div>
+        <div class="chk" style="align-items:flex-start;white-space:normal;margin-top:6px">
+          <i class="box"></i>
+          <span style="line-height:1.5">我知道：归档完成后，这张卡上的 <b>248 个文件会被删除</b>，无法撤销。跳过 2 个与失败 1 个会保留。</span>
+        </div>
+      </div>
+
+      <div class="sticky">
+        <span class="hint">确认 30 分钟内有效，改选项需重新扫描</span>
+        <div class="acts">
+          <button class="ra-btn ra-btn--ghost">改选项</button>
+          <button class="ra-btn ra-btn--danger" disabled style="opacity:.45;cursor:not-allowed">归档并清空这张卡
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h13M12 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== 屏 4：执行中 RUNNING ===================== -->
+    <section data-screen="running" hidden style="display:flex;flex-direction:column;flex:1;gap:var(--ra-sp-4)">
+      <div class="ra-card">
+        <div class="card-h"><h2>正在归档</h2>
+          <div class="right"><button class="ra-btn ra-btn--od ra-btn--sm">停止归档</button></div>
+        </div>
+
+        <div class="stage-row">
+          <div class="stage done"><i></i>暂存</div>
+          <div class="stage now"><i></i>归档</div>
+          <div class="stage"><i></i>清源</div>
+        </div>
+
+        <div class="pbar"><i style="width:62%"></i></div>
+        <div class="line" style="margin-top:8px">
+          <span style="font-size:var(--ra-fs-16);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap">121 / 194 个文件</span>
+          <span class="lbl">已用 4 分 12 秒</span>
+          <span class="lbl">约剩 2 分 40 秒</span>
+          <span style="margin-inline-start:auto;font-size:var(--ra-fs-13);white-space:nowrap">
+            <span style="color:var(--ra-ok)">成功 118</span> ·
+            <span style="color:var(--ra-danger)">失败 1</span> ·
+            <span style="color:var(--ra-ink-3)">跳过 2</span>
+          </span>
+        </div>
+
+        <div style="margin-top:12px;background:var(--ra-surface2);border:1px solid var(--ra-line);border-radius:var(--ra-r-1);padding:9px 12px">
+          <div style="display:flex;align-items:center;gap:7px;color:var(--ra-ink-3);font-size:var(--ra-fs-11);font-weight:500;margin-bottom:5px">
+            <span style="white-space:nowrap">当前文件</span>
+          </div>
+          <div class="mono" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">DCIM/100CANON/IMG_1866.CR3</div>
+          <div class="mono" style="color:var(--ra-ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">→ 20261018/IMG_1866_20261018.CR3</div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;margin:var(--ra-sp-4) 0 6px">
+          <h2 style="margin:0;font-size:var(--ra-fs-14);font-weight:600;white-space:nowrap">日志</h2>
+          <span class="lbl">已 194 行</span>
+          <button class="ra-btn ra-btn--text ra-btn--sm" style="margin-inline-start:auto">展开
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </div>
+        <div class="log">
+          <div class="logline"><time>15:32:07</time><i class="ld ok"></i><span class="tx">IMG_1864.CR3 → 20261018/IMG_1864.CR3</span></div>
+          <div class="logline"><time>15:32:08</time><i class="ld warn"></i><span class="tx">IMG_1865.NEF 无拍摄日期，跳过</span></div>
+          <div class="logline"><time>15:32:09</time><i class="ld bad"></i><span class="tx">IMG_1866.CR3 写入失败：磁盘配额不足（详见报告）</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== 屏 5：结果 DONE ===================== -->
+    <section data-screen="done" hidden style="display:flex;flex-direction:column;flex:1;gap:var(--ra-sp-4)">
+      <div class="ra-card">
+        <div class="card-h"><h2>归档完成</h2></div>
+        <div class="stats" style="grid-template-columns:repeat(5,1fr)">
+          <div class="stat"><b style="color:var(--ra-ok)">121</b><u>已归档</u></div>
+          <div class="stat"><b>2</b><u>跳过</u></div>
+          <div class="stat"><b style="color:var(--ra-danger)">1</b><u>失败</u></div>
+          <div class="stat"><b>124</b><u>已存在</u></div>
+          <div class="stat"><b style="font-size:18px">4 分 38 秒</b><u>总用时</u></div>
+        </div>
+        <div class="kv" style="margin-top:12px"><span class="k">落点</span><span class="v mono">/volume1/photos/Camera · 12.4 GB</span></div>
+        <div class="kv"><span class="k">报告</span><span class="v mono" style="color:var(--ra-brand-text);text-decoration:underline">/volume1/photos/Camera/log/_report_20261023_153000.json</span></div>
+
+        <div style="display:flex;align-items:center;gap:8px;margin-top:var(--ra-sp-4)">
+          <span class="lbl" style="flex:0 0 auto">下一步</span>
+          <button class="ra-btn ra-btn--ghost">打开目标目录</button>
+          <button class="ra-btn ra-btn--ghost">查看报告</button>
+          <button class="ra-btn ra-btn--primary" style="min-height:36px;padding:0 var(--ra-sp-4)">再来一张卡</button>
+        </div>
+      </div>
+
+      <div class="ra-card danger">
+        <h3>危险区</h3>
+        <div class="notice warn" style="margin-bottom:8px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v5"/><circle cx="12" cy="16.5" r="1.1" fill="currentColor" stroke="none"/><path d="M12 3.5L21 20H3z"/></svg>
+          <span>这 121 个文件的源文件还在卡上，可以清空。清空前会逐个校验「目标存在且大小一致」，不一致的会保留。</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="ra-btn ra-btn--od">清空源文件</button>
+          <span class="lbl">卡上的 2 个跳过、1 个失败会保留</span>
+        </div>
+        <div class="chk" style="margin-top:6px;white-space:normal;line-height:1.5">
+          <i class="box"></i><span>我确认清空这 121 个源文件</span>
+        </div>
+      </div>
+
+      <div class="ra-card">
+        <div class="card-h"><h2 style="font-size:var(--ra-fs-14)">出错怎么办</h2></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="ra-btn ra-btn--od">撤回归档</button>
+          <span class="lbl">仅「复制」模式可用；移动模式此块不显示</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== 屏 6：任务 TASKS ===================== -->
+    <section data-screen="tasks" hidden style="display:flex;flex-direction:column;flex:1;gap:var(--ra-sp-4)">
+      <div class="ra-card">
+        <div class="card-h"><h2>台账</h2><div class="right"><span class="lbl">最近 2026-10-20 09:12</span></div></div>
+        <div class="line">
+          <div><span class="big" style="font-size:24px">3 842</span> <span class="lbl">累计已归档</span></div>
+          <div style="margin-inline-start:20px"><span class="big" style="font-size:24px">12</span> <span class="lbl">已回滚</span></div>
+          <div style="margin-inline-start:20px"><span class="big" style="font-size:24px">7</span> <span class="lbl">任务总数</span></div>
+        </div>
+        <div class="aux" style="margin-top:6px">落点 /volume1/photos/Camera 3 718 <span class="sep">·</span> /volume2/backup 124</div>
+        <div class="aux" style="color:var(--ra-ink-3);margin-top:2px">月度明细需后端补 ledger op=monthly（P1-6）</div>
+      </div>
+
+      <div class="ra-card">
+        <div class="card-h"><h2>任务</h2><div class="right"><span class="lbl">按时间倒序</span></div></div>
+        <table>
+          <thead><tr><th style="width:16%">时间</th><th style="width:32%">源</th><th style="width:10%">张数</th><th style="width:12%">体积</th><th style="width:16%">结果</th><th style="width:14%"></th></tr></thead>
+          <tbody>
+            <tr><td class="num">10-20 09:12</td><td class="mono">MassStorageClass/DCIM</td><td class="num">124</td><td class="num">3.4 GB</td><td><span class="badge b-ok">完成</span></td><td><button class="ra-btn ra-btn--text ra-btn--sm">详情</button></td></tr>
+            <tr><td class="num">10-18 20:31</td><td class="mono">SanDisk/DCIM</td><td class="num">194</td><td class="num">5.1 GB</td><td><span class="badge b-ok">完成</span></td><td><button class="ra-btn ra-btn--text ra-btn--sm">详情</button></td></tr>
+            <tr style="background:var(--ra-brand-soft)"><td class="num">10-12 14:02</td><td class="mono">MassStorageClass/DCIM</td><td class="num">88</td><td class="num">2.2 GB</td><td><span class="badge b-warn">已停止</span></td><td><button class="ra-btn ra-btn--ghost ra-btn--sm">续跑</button></td></tr>
+            <tr><td class="num">10-05 11:20</td><td class="mono">/volume2/backup</td><td class="num">66</td><td class="num">1.7 GB</td><td><span class="badge b-dg">出错</span></td><td><button class="ra-btn ra-btn--ghost ra-btn--sm">续跑</button></td></tr>
+          </tbody>
+        </table>
+        <div class="aux" style="color:var(--ra-ink-3);margin-top:8px">只显示本地记录的任务。完整列表需后端补 tasks 动作（P1-5）。</div>
+      </div>
+
+      <div class="drawer-wrap">
+        <div class="scrim"></div>
+        <div class="drawer">
+          <div class="dh">任务 20261012_140211_7742 <button class="x">×</button></div>
+          <div class="dc">
+            <div class="kv"><span class="k">状态</span><span class="v"><span class="badge b-warn">已停止</span> 第 88 个文件处</span></div>
+            <div class="kv"><span class="k">源</span><span class="v mono">/vol00/MassStorageClass/DCIM</span></div>
+            <div class="kv"><span class="k">目标</span><span class="v mono">/volume1/photos/Camera</span></div>
+            <div class="kv"><span class="k">选项</span><span class="v">复制 · 按日期 · RAW+JPG · 暂存</span></div>
+            <div class="kv"><span class="k">结果</span><span class="v">成功 71 · 跳过 15 · 失败 2 · 未处理 106</span></div>
+            <div class="kv"><span class="k">记录</span><span class="v mono" style="color:var(--ra-brand-text);text-decoration:underline">…/log/rawarchiver_20261012_140211_7742.log</span></div>
+            <button class="ra-btn ra-btn--primary" style="margin-top:4px;width:100%">继续未完成的任务</button>
+            <div class="danger" style="margin-top:var(--ra-sp-4)">
+              <h3>危险区</h3>
+              <div style="font-size:var(--ra-fs-13);color:var(--ra-ink-2);line-height:1.55;margin-bottom:8px">这两个操作会动 NAS 上的真实文件，做完不能撤销。</div>
+              <div style="display:flex;gap:8px"><button class="ra-btn ra-btn--od ra-btn--sm">清空源文件</button><button class="ra-btn ra-btn--od ra-btn--sm">撤回归档</button></div>
+              <div class="aux" style="color:var(--ra-ink-3);margin-top:8px">清空前会逐个校验「目标存在且大小一致」；不过的保留。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(function(){
+  var q = new URLSearchParams(location.search);
+  var s = q.get('s') || 'ready';
+  var theme = q.get('theme') === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = theme;
+  document.querySelectorAll('[data-screen]').forEach(function(el){
+    el.hidden = el.dataset.screen !== s;
+  });
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function(t){ t.setAttribute('aria-selected', 'false'); });
+  var active = 'workbench';
+  if (s === 'tasks') active = 'tasks';
+  if (s === 'maint') active = 'maint';
+  tabs.forEach(function(t){
+    if (t.dataset.tab === active) t.setAttribute('aria-selected', 'true');
+  });
+  // 抽屉只在 tasks 屏显示
+})();
+</script>
+</body>
+</html>

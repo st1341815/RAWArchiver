@@ -41,7 +41,7 @@ SOCK_PATH = os.path.join(APP_DEST, "rawarchiver.sock")
 sys.path.insert(0, os.path.join(APP_DEST, "scripts"))
 import raw_archiver as core  # noqa: E402
 
-VERSION = "1.0.22"
+VERSION = "1.0.23"
 
 
 class CoreError(Exception):
@@ -165,6 +165,12 @@ def optargs(b):
         a.append("--month")
     a += ["--dup-hash", "full" if b.get("dupHash") == "full" else "sampled"]
     a.append("--staging" if b.get("staging", True) else "--no-staging")
+    # mode 必须透传到预览：确认凭据绑定 opts_sig（含 mode）。
+    # 此前预览总是按默认 copy 签发凭据，而 start(move) 校验按 move 算 ——
+    # 「移动模式 + 重新处理已归档」组合必然报「凭据与选项不匹配」。
+    m = b.get("mode", "copy")
+    if m in ("copy", "move"):
+        a += ["--mode", m]
     return a
 
 
