@@ -6,7 +6,7 @@
 > - **Formats**: NEF/NRW/CR2/CR3/CRW/ARW/SRF/SR2/RAF/ORF/RW2/DNG/PEF · JPG/JPEG · MP4/MOV/MTS/M2TS/AVI/MKV/3GP/MPG/MPEG/WMV/FLV/M4V/TS/MOD/MXF
 > - **Brands**: Canon · Nikon · Sony · Fujifilm · Hasselblad · Leica · Olympus · Panasonic · Pentax/Ricoh · Sigma · Phase One · Samsung · Apple · Huawei · Xiaomi · DJI · GoPro
 > - **Safety**: source is **read-only** · **already-archived files are skipped automatically**（重复归档防护）· photos without EXIF date are **skipped** · resumable · optional source cleanup after verified copy · machine-readable JSON report
-> - **维护状态**：**fnOS `.fpk`（v1.0.24）为当前主线**，桌面原生版（macOS/Windows，v1.1.1）随同发布；`RAWArchiver/` 本体（DSM 套件 / 源码包，v1.0.0）**已冻结存档，不再维护、不再发布**
+> - **维护状态**：**fnOS `.fpk`（v2.0.5）为当前主线**，桌面原生版（macOS/Windows，v1.1.1）随同发布；`RAWArchiver/` 本体（DSM 套件 / 源码包，v1.0.0）**已冻结存档，不再维护、不再发布**
 > - **Download**: [Releases](https://github.com/st1341815/RAWArchiver/releases)
 > - **产物按版本线发布**：fnOS 应用包走 `v1.0.x`（如 `v1.0.20`，只含 `.fpk`）；桌面原生版走 `v1.1.x`（如 `v1.1.1`，只含 `.dmg` / `.exe`）。按平台选对应版本下载
 > - **macOS 版**（MacBook / Apple Silicon M 系列，**原生 SwiftUI**）：下载 `RawArchiver-macOS-<版本>-arm64.dmg` → 双击挂载 → 把 `RawArchiver.app` 拖进「应用程序」→ **首次打开右键 → 打开**（未做 Apple 公证）
@@ -219,7 +219,7 @@ desktop/              桌面原生 GUI（macOS SwiftUI / Windows WPF，共享 Py
 >
 > | 线 | 核心脚本 | 任务态位置 | 说明 |
 > | --- | --- | --- | --- |
-> | **fnOS 应用包 / 桌面版**（在维护，当前 v1.0.24） | `fnos/rawarchiver/app/scripts/raw_archiver.py` | `$TRIM_PKGVAR/.rawarchiver/`（无该变量时回落应用根目录） | fnOS `.fpk` + macOS/Windows 原生版的**唯一真源**，`desktop/core-ipc` 也调它 |
+> | **fnOS 应用包 / 桌面版**（在维护，当前 v2.0.5） | `fnos/rawarchiver/app/scripts/raw_archiver.py` | `$TRIM_PKGVAR/.rawarchiver/`（无该变量时回落应用根目录） | fnOS `.fpk` + macOS/Windows 原生版的**唯一真源**，`desktop/core-ipc` 也调它 |
 > | **本体**（v1.0.0 存档线，冻结） | `RAWArchiver/scripts/raw_archiver.py` | `<输出目录>/.rawarchiver/`（自包含） | 供 DSM 套件与「源码包」使用；**不跟随** v1.0.14+ 的演进（重复归档防护、批量解析等） |
 >
 > 需要最新能力（重复归档防护 / 批量 EXIF / 500+ 统计修复）时请用 `fnos/` 那份 —— 它只依赖标准库，可直接当 CLI 跑。
