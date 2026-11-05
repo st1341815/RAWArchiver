@@ -30,14 +30,14 @@
       "is_docker": false,
       "service_port": "",
       "releases": {
-        "2.0.4": {
-          "changelog": "v2.0.4 图标圆角对齐飞牛官方样式：实测官方应用图标（文件管理等）为四角大圆角轮廓，半径约 26% 且角部连续曲率；本应用图标此前是直角方图，在圆角图标队列里显得突兀。现给全套图标（icon_256 / icon_64 / ICON.PNG / ICON_256.PNG / icon-source / 页头 logo / favicon）统一加 26% 圆角 alpha 蒙版（四角透明），32px 采样轮廓与官方图标逐行对齐；页头 logo 容器去掉叠加的 border-radius 与底色，避免双重圆角。",
+        "2.0.5": {
+          "changelog": "v2.0.5 图标主体放大：对原图做 82% 裁剪（裁掉四周暗色背景的边缘部分）后重新生成全套图标，图形主体在图标中的占比从约 49% 提升到约 60%，四周背景降到最小；圆角仍为飞牛官方样式的 26%。icon_256 / icon_64 / ICON.PNG / ICON_256.PNG / icon-source / 页头 logo / favicon 全部同步更新。",
           "updated_at": "2026-11-05T06:30:01+08:00",
           "packages": {
             "all": {
-              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v2.0.4/rawarchiver-2.0.4.fpk",
-              "sha256": "6437710691d53888d8f00163dfae6c26c793fcea2f3e3741914f09814e3b7e5c",
-              "size": 5062699
+              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v2.0.5/rawarchiver-2.0.5.fpk",
+              "sha256": "6df3688487de31eec48d2767636495fb2006316ba6a9203175a375060740ab72",
+              "size": 5090361
             }
           }
         },
