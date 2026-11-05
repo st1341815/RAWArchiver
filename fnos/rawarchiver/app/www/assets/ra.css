@@ -83,7 +83,6 @@ html,body{margin:0;background:var(--ra-bg);color:var(--ra-ink);
 .tab{flex:0 0 auto;white-space:nowrap;font:500 var(--ra-fs-13)/1 var(--ra-font-ui);padding:7px 14px;border-radius:6px;
   color:var(--ra-ink-2);border:0;background:transparent;cursor:pointer;transition:background var(--ra-t-fast) var(--ra-ease)}
 .tab[aria-selected="true"]{background:var(--ra-surface);color:var(--ra-ink);font-weight:600;box-shadow:var(--ra-sh-1)}
-.hdr-r{display:flex;align-items:center;gap:6px;font-size:var(--ra-fs-12);color:var(--ra-ink-3);white-space:nowrap;flex:0 0 auto}
 .dot{width:7px;height:7px;border-radius:99px;background:var(--ra-line-strong);flex:0 0 auto}
 .dot.ok{background:var(--ra-ok)}.dot.warn{background:var(--ra-warn)}
 
@@ -293,7 +292,9 @@ footer{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);color:var(--ra-ink-3
 
 /* ---------- 顶部自检点（可点击进维护页） ---------- */
 .dotdot{display:inline-flex;align-items:center;gap:6px;background:transparent;border:0;border-radius:6px;
-  padding:4px 8px;font:500 var(--ra-fs-12)/1 var(--ra-font-ui);color:var(--ra-ink-3);cursor:pointer;white-space:nowrap}
+  padding:4px 8px;font:500 var(--ra-fs-12)/1 var(--ra-font-ui);color:var(--ra-ink-3);cursor:pointer;
+  /* v2.0.1：徽章移到「工作台」左侧后不再靠右兜底，必须禁止被 flex 压缩，否则中文会被挤到溢出容器 */
+  white-space:nowrap;flex:0 0 auto}
 .dotdot:hover{background:var(--ra-surface2);color:var(--ra-ink)}
 
 /* ---------- 轻提示 ---------- */
@@ -321,12 +322,28 @@ footer{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);color:var(--ra-ink-3
   .body{padding:var(--ra-sp-3)}
 }
 @media (max-width:640px){
+  /* v2.0.1 顶部让位：标题里的版本号在窄屏隐藏（维护页仍显示完整版本），
+     省下的宽度留给「自检通过」徽章 —— 它是常驻状态指示，比版本号更需要可见 */
+  .hdr h1 small{display:none}
+  .hdr-in{gap:var(--ra-sp-2);padding:0 var(--ra-sp-3)}
+  .tab{padding:7px 11px}
+  .dotdot{padding:4px 6px}
   /* 单列后组间靠 gap 分不开，恢复虚线分隔，让 .gnote 注释能看出归属哪一组 */
-  #cardOpts{grid-template-columns:1fr}
+  /* minmax(0,1fr)：1fr 等价 minmax(auto,1fr)，列宽会被最宽子元素撑开，
+     340/320 下就会顶出卡片右边界（实测 4px / 14px） */
+  /* 必须带 :not([hidden])：上面两列规则写的是 #cardOpts:not([hidden])，
+     特异性更高，纯 #cardOpts 的单列声明会被它压制 —— v1.0.24 的「≤640 单列」
+     因此从未生效，窄屏一直在用两列硬挤，这才是「重新处理已归档文件」溢出的根因 */
+  #cardOpts:not([hidden]){grid-template-columns:minmax(0,1fr)}
   #cardOpts .group{border-top:1px dashed var(--ra-line);margin-top:var(--ra-sp-3);padding-top:var(--ra-sp-3)}
   #cardOpts .group:first-of-type{border-top:0;margin-top:0;padding-top:0}
   .stats{grid-template-columns:repeat(2,1fr)}
   .stage-row{grid-template-columns:1fr}
+}
+@media (max-width:400px){
+  .hdr h1{font-size:var(--ra-fs-14)}
+  .tab{padding:7px 9px;font-size:var(--ra-fs-12)}
+  .dotdot{font-size:var(--ra-fs-11);gap:5px;padding:4px 5px}
 }
 @media (max-height:760px){
   .hero .illus{display:none}

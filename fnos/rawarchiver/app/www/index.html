@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="RAW 归档 —— 相机照片按拍摄日期整理归档">
 <title>RAW 归档</title>
-<link rel="stylesheet" href="/app/rawarchiver/assets/ra.css?v=2.0.0">
+<link rel="stylesheet" href="/app/rawarchiver/assets/ra.css?v=2.0.1">
 </head>
 <body>
 <div class="app">
@@ -16,15 +16,13 @@
         </svg>
       </span>
       <h1>RAW 归档 <small id="verTag"></small></h1>
+      <button type="button" class="dotdot" id="docDot" title="运行自检（点击查看详情）">
+        <span class="dot" id="dotMark"></span><span id="dotTx">自检中…</span>
+      </button>
       <nav class="tabs" role="tablist" aria-label="页面">
         <button type="button" class="tab" id="tabWork" role="tab" aria-selected="true">工作台</button>
         <button type="button" class="tab" id="tabMaint" role="tab" aria-selected="false">维护</button>
       </nav>
-      <div class="hdr-r">
-        <button type="button" class="dotdot" id="docDot" title="运行自检（点击查看详情）">
-          <span class="dot" id="dotMark"></span><span id="dotTx">自检中…</span>
-        </button>
-      </div>
     </div>
   </header>
 
@@ -106,7 +104,7 @@
         </div>
         <div class="group">
           <div class="glabel">模式</div>
-          <select id="optMode" class="inp" style="max-width:320px">
+          <select id="optMode" class="inp" style="max-width:100%">
             <option value="copy">复制（保留源文件）</option>
             <option value="move">移动（归档后清空源，不可回滚）</option>
           </select>
