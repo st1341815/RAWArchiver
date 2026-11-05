@@ -36,8 +36,8 @@
           "packages": {
             "all": {
               "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v2.0.2/rawarchiver-2.0.2.fpk",
-              "sha256": "b650b5b685de49480f4a80e1d8eb452634fa995117fe3600ff5a6369239d445e",
-              "size": 5008676
+              "sha256": "eb6ab651b5761f6e0dc4fadb1597d5fe01d09a411356668b25b3c382042eca90",
+              "size": 5008811
             }
           }
         },

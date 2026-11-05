@@ -199,6 +199,9 @@ table.tbl{width:max-content;min-width:100%;border-collapse:collapse;table-layout
   padding:0 8px 6px;border-bottom:1px solid var(--ra-line);white-space:nowrap}
 .tbl td{padding:7px 8px;font-size:var(--ra-fs-13);border-bottom:1px solid var(--ra-line);
   white-space:nowrap;vertical-align:middle}
+/* 兜底：极端超长文件名（实测 60+ 字符）会把整张表从 ~790px 撑到 1600px，
+   一个异常值就毁掉整表可读性。正常相机文件名（IMG_4821.CR3）远小于此上限，不受影响。 */
+.tbl td.mono{max-width:420px;overflow:hidden;text-overflow:ellipsis}
 /* 日期 / 大小等数字列等宽对齐，扫读更稳 */
 .tbl td.mono,.tbl th.mono{font-variant-numeric:tabular-nums}
 .tbl tr:last-child td{border-bottom:0}

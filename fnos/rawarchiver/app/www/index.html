@@ -784,7 +784,8 @@ function renderReview(d){
   // 清单
   const samples = (d.dup && d.dup.sample) || [];
   if (samples.length) {
-    $('prevDupBody').innerHTML = samples.map(s => '<tr><td class="mono">' + esc(s.src) + '</td><td class="mono">'
+    $('prevDupBody').innerHTML = samples.map(s => '<tr><td class="mono" title="' + esc(s.src) + '">' + esc(s.src) + '</td><td class="mono" title="'
+      + esc(s.prev_dst || '—') + '">'
       + esc(s.prev_dst || '—') + '</td><td class="num">' + esc((s.archived_at || '—').slice(0,16)) + '</td><td>'
       + vbadge(s.verdict) + (s.level ? ' <span class="badge b-s">' + esc(LEVEL_LABEL[s.level] || s.level) + '</span>' : '')
       + '</td></tr>').join('');
@@ -793,8 +794,9 @@ function renderReview(d){
   } else {
     $('prevDupDetails').hidden = true;
   }
-  $('prevBody').innerHTML = (d.sample||[]).map(s => '<tr><td class="mono">' + esc(s.src) + '</td><td class="num">'
-    + esc(s.date||'—') + '</td><td>' + badge(s.date_from) + '</td><td class="mono">' + esc(s.dst_rel||'')
+  $('prevBody').innerHTML = (d.sample||[]).map(s => '<tr><td class="mono" title="' + esc(s.src) + '">' + esc(s.src) + '</td><td class="num">'
+    + esc(s.date||'—') + '</td><td>' + badge(s.date_from) + '</td><td class="mono" title="'
+    + esc(s.dst_rel||'') + '">' + esc(s.dst_rel||'')
     + '</td><td>' + vbadge(s.verdict) + '</td></tr>').join('');
   $('prevToggle').textContent = d.sample_limited
     ? ('文件清单（共 ' + d.total + ' 个文件，此处只列前 ' + (d.sample_shown || (d.sample||[]).length) + ' 个）')
