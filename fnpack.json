@@ -30,14 +30,14 @@
       "is_docker": false,
       "service_port": "",
       "releases": {
-        "2.0.1": {
-          "changelog": "v2.0.1 顶部导航重排 + 手机端溢出修复：①「自检通过」徽章从页面最右侧移到「工作台」左侧（工作台、维护顺序不变）；② 修掉一个藏了两版的真 bug —— #cardOpts:not([hidden]) 的两列规则特异性高于 @media 里的纯 #cardOpts，导致 v1.0.24 的「≤640 单列」从未生效，窄屏一直用两列硬挤，「重新处理已归档文件」因此在 340/320 下顶出卡片（实测 4px / 14px）；现改为同特异性的 minmax(0,1fr)；③ 徽章不许被 flex 压缩（flex:0 0 auto），≤640 隐藏标题里的版本号给它腾位、≤400 再收一档字号与内边距；④ 自检脚本重写：原实现用 chromium --window-size 模拟窄屏，但 headless 最小只有 500px，320/340/360 三档实际都按 500px 测、结论一直是假的；现改为 iframe 强制窄视口，并新增顶部越界、文字压裁与「样式是否真加载」三项检测。390/360/340/320 四档全绿。",
+        "2.0.2": {
+          "changelog": "v2.0.2 文件清单列宽自适应：清单表格原用 table-layout:fixed + width:100%，5 列平分宽度，源文件名与归档相对路径一律被 ellipsis 截断（等于把关键信息藏起来）；现改为 width:max-content + min-width:100% + table-layout:auto —— 每列按内容取自然宽度、不再截断任何内容，装不下时由外层容器横向滚动；同时给日期等数字列加 tabular-nums 等宽对齐，扫读更稳。",
           "updated_at": "2026-11-05T06:30:01+08:00",
           "packages": {
             "all": {
-              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v2.0.1/rawarchiver-2.0.1.fpk",
-              "sha256": "551d4863a9f1f3ca2df6daef2361ee3c027d891f151f985721493aa8794aea96",
-              "size": 5008171
+              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v2.0.2/rawarchiver-2.0.2.fpk",
+              "sha256": "b650b5b685de49480f4a80e1d8eb452634fa995117fe3600ff5a6369239d445e",
+              "size": 5008676
             }
           }
         },

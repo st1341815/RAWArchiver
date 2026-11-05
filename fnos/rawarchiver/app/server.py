@@ -41,7 +41,7 @@ SOCK_PATH = os.path.join(APP_DEST, "rawarchiver.sock")
 sys.path.insert(0, os.path.join(APP_DEST, "scripts"))
 import raw_archiver as core  # noqa: E402
 
-VERSION = "2.0.1"
+VERSION = "2.0.2"
 
 
 class CoreError(Exception):

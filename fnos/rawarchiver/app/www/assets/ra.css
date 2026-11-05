@@ -190,11 +190,17 @@ html,body{margin:0;background:var(--ra-bg);color:var(--ra-ink);
 
 /* ---------- 表格 ---------- */
 .tblwrap{overflow:auto;min-width:0}
-table.tbl{width:100%;border-collapse:collapse;table-layout:fixed}
+/* v2.0.2：列宽按内容自适应（原来 table-layout:fixed + width:100% 会把 5 列平分，
+   源文件名 / 归档相对路径一律被 ellipsis 截掉，等于把信息藏起来了）。
+   width:max-content 让每列取内容自然宽度，min-width:100% 保证宽屏仍铺满；
+   装不下时由 .tblwrap 横向滚动，而不是截断内容。 */
+table.tbl{width:max-content;min-width:100%;border-collapse:collapse;table-layout:auto}
 .tbl th{font-size:var(--ra-fs-11);font-weight:500;color:var(--ra-ink-3);text-align:start;
   padding:0 8px 6px;border-bottom:1px solid var(--ra-line);white-space:nowrap}
 .tbl td{padding:7px 8px;font-size:var(--ra-fs-13);border-bottom:1px solid var(--ra-line);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+  white-space:nowrap;vertical-align:middle}
+/* 日期 / 大小等数字列等宽对齐，扫读更稳 */
+.tbl td.mono,.tbl th.mono{font-variant-numeric:tabular-nums}
 .tbl tr:last-child td{border-bottom:0}
 .mono{font-family:var(--ra-font-mono);font-size:var(--ra-fs-12)}
 
