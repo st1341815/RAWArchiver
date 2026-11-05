@@ -75,7 +75,10 @@ html,body{margin:0;background:var(--ra-bg);color:var(--ra-ink);
 /* ---------- 布局骨架 ---------- */
 .hdr{position:sticky;top:0;z-index:10;height:56px;background:var(--ra-surface);border-bottom:1px solid var(--ra-line)}
 .hdr-in{max-width:860px;height:100%;margin:0 auto;padding:0 var(--ra-sp-4);display:flex;align-items:center;gap:var(--ra-sp-3)}
-.logo{width:26px;height:26px;border-radius:7px;background:var(--ra-brand);display:grid;place-items:center;flex:0 0 auto}
+.logo{width:26px;height:26px;border-radius:7px;background:var(--ra-brand);display:grid;place-items:center;
+  flex:0 0 auto;overflow:hidden}
+/* v2.0.3 换成位图 logo：深色底图标满铺，圆角由容器裁出 */
+.logo img{width:100%;height:100%;object-fit:cover;display:block}
 .logo svg{width:15px;height:15px;color:var(--ra-brand-ink)}
 .hdr h1{margin:0;font-size:var(--ra-fs-16);font-weight:600;line-height:1;white-space:nowrap}
 .hdr h1 small{font-size:var(--ra-fs-11);font-weight:400;color:var(--ra-ink-3);margin-left:6px}

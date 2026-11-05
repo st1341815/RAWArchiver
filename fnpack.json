@@ -30,14 +30,14 @@
       "is_docker": false,
       "service_port": "",
       "releases": {
-        "2.0.2": {
-          "changelog": "v2.0.2 文件清单列宽自适应：清单表格原用 table-layout:fixed + width:100%，5 列平分宽度，源文件名与归档相对路径一律被 ellipsis 截断（等于把关键信息藏起来）；现改为 width:max-content + min-width:100% + table-layout:auto —— 每列按内容取自然宽度、不再截断任何内容，装不下时由外层容器横向滚动；同时给日期等数字列加 tabular-nums 等宽对齐，扫读更稳。",
+        "2.0.3": {
+          "changelog": "v2.0.3 更换应用图标：① 应用图标全套换成新设计（深色底 + 白色标记）—— icon_256 / icon_64 / ICON.PNG / ICON_256.PNG / icon-source 同步更新，应用中心与桌面入口显示新图标；② 页头 logo 由内联相机 SVG 改为位图图标（26px 圆角裁切、object-fit:cover），与图标视觉统一；③ 新增 favicon（32px），浏览器标签页不再显示空白文档图标。",
           "updated_at": "2026-11-05T06:30:01+08:00",
           "packages": {
             "all": {
-              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v2.0.2/rawarchiver-2.0.2.fpk",
-              "sha256": "eb6ab651b5761f6e0dc4fadb1597d5fe01d09a411356668b25b3c382042eca90",
-              "size": 5008811
+              "download_url": "https://github.com/st1341815/RAWArchiver/releases/download/v2.0.3/rawarchiver-2.0.3.fpk",
+              "sha256": "1100a7ad2aff988669bdd0682b094ade092bf14fbd001697b48c3404dca0dd30",
+              "size": 5068490
             }
           }
         },
