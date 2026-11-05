@@ -5,7 +5,7 @@
 <meta name="description" content="RAW 归档 —— 相机照片按拍摄日期整理归档">
 <title>RAW 归档</title>
   <link rel="icon" type="image/png" href="/app/rawarchiver/assets/favicon-32.png">
-<link rel="stylesheet" href="/app/rawarchiver/assets/ra.css?v=2.0.4">
+<link rel="stylesheet" href="/app/rawarchiver/assets/ra.css?v=2.0.6">
 </head>
 <body>
 <div class="app">
@@ -226,18 +226,21 @@
     </section>
   </main>
 
-  <div class="sticky" id="workbar" hidden>
-    <span class="hint" id="barHint"></span>
-    <span class="spacer"></span>
-    <span class="acts">
-      <button type="button" class="btn btn-od" id="btnCancel" hidden>停止归档</button>
-      <button type="button" class="btn btn-ghost" id="btnPreview" hidden>扫描预览</button>
-      <button type="button" class="btn btn-primary" id="btnStart" hidden disabled>开始归档</button>
-    </span>
+  <!-- 底部常驻栏（v2.0.6）：固定贴浏览器底部，两行 —— 上行 hint + 主行动按钮，下行口径说明。
+       页脚整句拆成可独立折行的片段，窄屏按片段换行，不会把「应用数据目录」切成两半。 -->
+  <div class="footdock" id="footDock">
+    <div class="sticky" id="workbar" hidden>
+      <span class="hint" id="barHint"></span>
+      <span class="spacer"></span>
+      <span class="acts">
+        <button type="button" class="btn btn-od" id="btnCancel" hidden>停止归档</button>
+        <button type="button" class="btn btn-ghost" id="btnPreview" hidden>扫描预览</button>
+        <button type="button" class="btn btn-primary" id="btnStart" hidden disabled>开始归档</button>
+      </span>
+    </div>
+    <footer id="footNote"><span>RAW 归档</span><span>源目录只读</span><span>任务态写在应用数据目录</span><span>日志与报告写在 <span class="mono">&lt;输出目录&gt;/log/</span></span></footer>
   </div>
 </div>
-
-<footer id="footNote">RAW 归档 · 源目录只读 · 任务态写在应用数据目录 · 日志与报告写在 &lt;输出目录&gt;/log/</footer>
 
 <!-- 目录浏览器 -->
 <div id="dirModal" class="modal" hidden>
@@ -1175,6 +1178,21 @@ $('docDot').onclick = () => switchTab('maint');
   setInterval(() => { if (!$('viewWork').hidden && !$('srcPath').value.trim() && RESVIEW !== 'run') pollDevices(); }, 6000);
   pollDevices();
 })();
+
+/* ════════════════ 底栏高度实测（v2.0.6） ════════════════ */
+/* 底栏是 fixed，必须给 body 留出等高的上卷空间，否则最后一张卡片会被压住。
+   高度随三件事变化：① 断点（hint 一行/两行、按钮换行）② 工作台↔维护页（workbar 显隐）
+   ③ 浏览器缩放。所以不写死像素，用 ResizeObserver 实测写进 --ra-foot-h。 */
+function syncFootDock(){
+  const dock = $('footDock');
+  if (!dock) return;
+  const h = Math.round(dock.getBoundingClientRect().height);
+  document.documentElement.style.setProperty('--ra-foot-h', h + 'px');
+}
+if (window.ResizeObserver) new ResizeObserver(syncFootDock).observe($('footDock'));
+window.addEventListener('resize', syncFootDock);
+window.addEventListener('orientationchange', syncFootDock);
+syncFootDock();
 
 /* ── 调试出口（只读；供控制台/自动化检查页面内部状态，不含敏感数据） ── */
 window.__RA = {get MODE(){return MODE;}, get PV(){return PV;}, get RUN(){return RUN;},

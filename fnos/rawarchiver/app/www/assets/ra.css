@@ -91,15 +91,32 @@ html,body{margin:0;background:var(--ra-bg);color:var(--ra-ink);
 .body{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);display:flex;flex-direction:column;gap:var(--ra-sp-3)}
 .spacer{flex:1 1 auto}
 
-/* 吸底主行动栏：整页唯一的实心按钮住在这里。
-   在 .app 直下（不在 .body 内），用大内边距把内容对齐到 860px 主列，
-   背景通栏铺满，与顶栏呼应。 */
-.sticky{position:sticky;bottom:0;z-index:10;background:var(--ra-surface);border-top:1px solid var(--ra-line);
-  display:flex;align-items:center;gap:var(--ra-sp-3);
+/* ---------- 底部常驻栏（v2.0.6） ---------- */
+/* 两行贴浏览器底部：上行为 hint + 主行动按钮，下行为口径说明（footer）。
+   用 fixed 而非 sticky —— sticky 在内容不足一屏时停在自然位置（浮在页面中间），
+   这正是「没贴底」的观感来源。fixed 会遮内容，所以 body 留白取 --ra-foot-h，
+   该值由 JS 用 ResizeObserver 实测写入（行数随断点/换页变化会自动重算）。 */
+.footdock{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--ra-surface);
+  box-shadow:0 -6px 20px -14px rgba(18,22,20,.4);
+  padding-bottom:env(safe-area-inset-bottom,0px)}
+/* 整页唯一的实心按钮住在这里：大内边距把内容对齐到 860px 主列，背景通栏铺满，与顶栏呼应 */
+.footdock .sticky{display:flex;align-items:center;gap:var(--ra-sp-3);
   padding:12px max(var(--ra-sp-4), calc((100% - 860px)/2 + var(--ra-sp-4)));
-  box-shadow:0 -4px 16px -12px rgba(18,22,20,.25)}
-.sticky .hint{font-size:var(--ra-fs-12);color:var(--ra-ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sticky .acts{margin-inline-start:auto;display:flex;gap:var(--ra-sp-2);align-items:center;flex:0 0 auto}
+  border-top:1px solid var(--ra-line)}
+.footdock .hint{font-size:var(--ra-fs-12);color:var(--ra-ink-3);min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.footdock .acts{margin-inline-start:auto;display:flex;gap:var(--ra-sp-2);align-items:center;flex:0 0 auto}
+/* 页脚：整句拆成可独立折行的片段，窄屏按片段换行，
+   不会把「应用数据目录」从中间切成两半，也不会出现半截省略号 */
+.footdock footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+  gap:2px 8px;padding:8px var(--ra-sp-4);
+  border-top:1px solid var(--ra-line);background:var(--ra-surface2);
+  color:var(--ra-ink-3);font-size:var(--ra-fs-11);line-height:1.6}
+.footdock footer > span{white-space:nowrap;min-width:0}
+.footdock footer > span + span::before{content:"·";margin-inline-end:8px;color:var(--ra-line-strong)}
+.footdock footer .mono{color:var(--ra-ink-3);font-size:var(--ra-fs-11)}
+/* fixed 底栏会盖住页面尾部内容：留白高度 = 实测底栏高度 */
+body{padding-bottom:var(--ra-foot-h,96px)}
 
 /* ---------- 卡片 ---------- */
 .card{background:var(--ra-surface);border:var(--ra-bw) solid var(--ra-line);border-radius:var(--ra-r-2);padding:var(--ra-sp-4)}
@@ -298,7 +315,7 @@ table.tbl{width:max-content;min-width:100%;border-collapse:collapse;table-layout
 .brandline{font-size:var(--ra-fs-13);line-height:1.9;color:var(--ra-ink-2)}
 .brandline b{color:var(--ra-brand-text);font-weight:600}
 
-footer{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);color:var(--ra-ink-3);font-size:var(--ra-fs-12);line-height:1.7}
+/* v2.0.6：页脚已并入 .footdock（见「底部常驻栏」），不再单独占文档流 */
 [hidden]{display:none!important}
 
 /* ---------- 顶部自检点（可点击进维护页） ---------- */
@@ -309,7 +326,8 @@ footer{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);color:var(--ra-ink-3
 .dotdot:hover{background:var(--ra-surface2);color:var(--ra-ink)}
 
 /* ---------- 轻提示 ---------- */
-.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(6px);z-index:60;
+/* bottom 随底栏实测高度上浮：底栏常驻后固定 24px 会被盖住（v2.0.6） */
+.toast{position:fixed;left:50%;bottom:calc(var(--ra-foot-h,96px) + 12px);transform:translateX(-50%) translateY(6px);z-index:60;
   max-width:min(560px,92vw);background:var(--ra-ink);color:var(--ra-bg);border-radius:var(--ra-r-1);
   padding:10px 16px;font-size:var(--ra-fs-13);line-height:1.5;box-shadow:var(--ra-sh-3);
   opacity:0;pointer-events:none;transition:opacity var(--ra-t-base) var(--ra-ease),transform var(--ra-t-base) var(--ra-ease)}
@@ -329,7 +347,7 @@ footer{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);color:var(--ra-ink-3
 
 /* ---------- 响应式断点（v1.0.24） ---------- */
 @media (max-width:900px){
-  .hdr-in,.body,footer{max-width:100%}
+  .hdr-in,.body{max-width:100%}
   .body{padding:var(--ra-sp-3)}
 }
 @media (max-width:640px){
@@ -350,6 +368,16 @@ footer{max-width:860px;margin:0 auto;padding:var(--ra-sp-4);color:var(--ra-ink-3
   #cardOpts .group:first-of-type{border-top:0;margin-top:0;padding-top:0}
   .stats{grid-template-columns:repeat(2,1fr)}
   .stage-row{grid-template-columns:1fr}
+
+  /* v2.0.6 底栏窄屏：hint 独占一整行（最多两行），按钮换到下一行靠右；
+     页脚按片段折行、左对齐 —— 居中折行会出现「半行悬空」的碎块观感 */
+  .footdock .sticky{flex-wrap:wrap;row-gap:var(--ra-sp-2);padding:10px var(--ra-sp-3);gap:var(--ra-sp-2)}
+  .footdock .hint{flex:1 1 100%;white-space:normal;overflow:hidden;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.5}
+  .footdock .spacer{display:none}
+  .footdock .acts{width:100%;justify-content:flex-end;margin-inline-start:0;flex-wrap:wrap}
+  .footdock footer{justify-content:flex-start;padding:7px var(--ra-sp-3);gap:2px 6px}
+  .footdock footer > span + span::before{margin-inline-end:6px}
 }
 @media (max-width:400px){
   .hdr h1{font-size:var(--ra-fs-14)}
